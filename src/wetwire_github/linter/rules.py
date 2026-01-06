@@ -225,10 +225,258 @@ class WAG008HardcodedExpressions(BaseRule):
         return errors
 
 
+class WAG002UseConditionBuilders(BaseRule):
+    """WAG002: Use condition builders instead of raw expressions.
+
+    Detects hardcoded condition function calls like ${{ always() }} and
+    suggests using the typed condition builders from expressions module.
+    """
+
+    # Pattern to find condition function calls
+    _CONDITION_PATTERN = re.compile(
+        r"\$\{\{\s*(always|failure|success|cancelled)\(\)\s*\}\}"
+    )
+
+    @property
+    def id(self) -> str:
+        return "WAG002"
+
+    @property
+    def description(self) -> str:
+        return "Use condition builders (always(), failure(), etc.) instead of raw strings"
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        errors = []
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return errors
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                # Check Step and Job calls for if_ parameter
+                if self._is_step_or_job_call(node):
+                    for keyword in node.keywords:
+                        if keyword.arg == "if_" and isinstance(
+                            keyword.value, ast.Constant
+                        ):
+                            value = keyword.value.value
+                            if isinstance(value, str):
+                                match = self._CONDITION_PATTERN.search(value)
+                                if match:
+                                    func_name = match.group(1)
+                                    errors.append(
+                                        LintError(
+                                            rule_id=self.id,
+                                            message=f"Use {func_name}() helper instead of hardcoded '${{{{ {func_name}() }}}}'",
+                                            file_path=file_path,
+                                            line=node.lineno,
+                                            column=node.col_offset,
+                                            suggestion=f"Import {func_name} from wetwire_github.workflow.expressions",
+                                        )
+                                    )
+
+        return errors
+
+    def _is_step_or_job_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a Step() or Job() call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id in ("Step", "Job")
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr in ("Step", "Job")
+        return False
+
+
+class WAG003UseSecretsContext(BaseRule):
+    """WAG003: Use secrets context for secrets access.
+
+    Detects hardcoded secrets access like ${{ secrets.TOKEN }} and
+    suggests using Secrets.get() helper.
+    """
+
+    # Pattern to find secrets access
+    _SECRETS_PATTERN = re.compile(r"\$\{\{\s*secrets\.(\w+)\s*\}\}")
+
+    @property
+    def id(self) -> str:
+        return "WAG003"
+
+    @property
+    def description(self) -> str:
+        return "Use Secrets.get() helper instead of hardcoded secrets access"
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        errors = []
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return errors
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                match = self._SECRETS_PATTERN.search(node.value)
+                if match:
+                    secret_name = match.group(1)
+                    errors.append(
+                        LintError(
+                            rule_id=self.id,
+                            message=f"Use Secrets.get('{secret_name}') instead of hardcoded '${{{{ secrets.{secret_name} }}}}'",
+                            file_path=file_path,
+                            line=node.lineno,
+                            column=node.col_offset,
+                            suggestion=f'Replace with: Secrets.get("{secret_name}")',
+                        )
+                    )
+
+        return errors
+
+
+class WAG004UseMatrixBuilder(BaseRule):
+    """WAG004: Use Matrix builder for matrix configurations.
+
+    Detects raw dict usage for strategy/matrix and suggests using
+    the Strategy and Matrix classes.
+    """
+
+    @property
+    def id(self) -> str:
+        return "WAG004"
+
+    @property
+    def description(self) -> str:
+        return "Use Strategy(matrix=Matrix(...)) instead of raw dicts"
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        errors = []
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return errors
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and self._is_job_call(node):
+                for keyword in node.keywords:
+                    if keyword.arg == "strategy":
+                        # Check if strategy is a dict literal
+                        if isinstance(keyword.value, ast.Dict):
+                            errors.append(
+                                LintError(
+                                    rule_id=self.id,
+                                    message="Use Strategy class instead of raw dict for strategy",
+                                    file_path=file_path,
+                                    line=keyword.value.lineno,
+                                    column=keyword.value.col_offset,
+                                    suggestion="Use: Strategy(matrix=Matrix(values={...}))",
+                                )
+                            )
+                        # Check if Strategy call has dict for matrix
+                        elif isinstance(keyword.value, ast.Call):
+                            if self._is_strategy_call(keyword.value):
+                                for strat_kw in keyword.value.keywords:
+                                    if strat_kw.arg == "matrix" and isinstance(
+                                        strat_kw.value, ast.Dict
+                                    ):
+                                        errors.append(
+                                            LintError(
+                                                rule_id=self.id,
+                                                message="Use Matrix class instead of raw dict for matrix",
+                                                file_path=file_path,
+                                                line=strat_kw.value.lineno,
+                                                column=strat_kw.value.col_offset,
+                                                suggestion="Use: Matrix(values={...})",
+                                            )
+                                        )
+
+        return errors
+
+    def _is_job_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a Job() call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id == "Job"
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr == "Job"
+        return False
+
+    def _is_strategy_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a Strategy() call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id == "Strategy"
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr == "Strategy"
+        return False
+
+
+class WAG005ExtractInlineEnvVariables(BaseRule):
+    """WAG005: Extract inline environment variables.
+
+    Detects when the same environment variable is defined in multiple
+    steps within a job and suggests extracting to job-level env.
+    """
+
+    @property
+    def id(self) -> str:
+        return "WAG005"
+
+    @property
+    def description(self) -> str:
+        return "Extract repeated env variables to job or workflow level"
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        errors = []
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return errors
+
+        # Find all Step calls and collect their env keys
+        env_occurrences: dict[str, list[int]] = {}
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and self._is_step_call(node):
+                for keyword in node.keywords:
+                    if keyword.arg == "env" and isinstance(keyword.value, ast.Dict):
+                        for key in keyword.value.keys:
+                            if isinstance(key, ast.Constant) and isinstance(
+                                key.value, str
+                            ):
+                                key_name = key.value
+                                if key_name not in env_occurrences:
+                                    env_occurrences[key_name] = []
+                                env_occurrences[key_name].append(node.lineno)
+
+        # Report keys that appear in multiple steps
+        for key_name, lines in env_occurrences.items():
+            if len(lines) >= 2:
+                errors.append(
+                    LintError(
+                        rule_id=self.id,
+                        message=f"Env variable '{key_name}' defined in {len(lines)} steps; consider extracting to job-level env",
+                        file_path=file_path,
+                        line=lines[0],
+                        column=0,
+                        suggestion="Move to Job(env={...}) or Workflow(env={...})",
+                    )
+                )
+
+        return errors
+
+    def _is_step_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a Step() call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id == "Step"
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr == "Step"
+        return False
+
+
 def get_default_rules() -> list[BaseRule]:
     """Return the default set of linting rules."""
     return [
         WAG001TypedActionWrappers(),
+        WAG002UseConditionBuilders(),
+        WAG003UseSecretsContext(),
+        WAG004UseMatrixBuilder(),
+        WAG005ExtractInlineEnvVariables(),
         WAG006DuplicateWorkflowNames(),
         WAG007FileTooLarge(),
         WAG008HardcodedExpressions(),
