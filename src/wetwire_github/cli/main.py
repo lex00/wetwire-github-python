@@ -358,8 +358,21 @@ def cmd_test(args: argparse.Namespace) -> int:
 
 def cmd_graph(args: argparse.Namespace) -> int:
     """Execute graph command."""
-    print(f"Graph command not yet implemented (package={args.package})")
-    return 1
+    from wetwire_github.cli.graph_cmd import graph_workflows
+
+    # Use current directory if no package specified
+    package_path = args.package or "."
+
+    exit_code, output = graph_workflows(
+        package_path=package_path,
+        output_format=args.format,
+        output_file=args.output,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
 
 
 def main(argv: list[str] | None = None) -> int:
