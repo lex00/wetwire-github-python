@@ -9,6 +9,10 @@ from wetwire_github.linter import (
 )
 from wetwire_github.linter.rules import (
     WAG001TypedActionWrappers,
+    WAG002UseConditionBuilders,
+    WAG003UseSecretsContext,
+    WAG004UseMatrixBuilder,
+    WAG005ExtractInlineEnvVariables,
     WAG006DuplicateWorkflowNames,
     WAG007FileTooLarge,
     WAG008HardcodedExpressions,
@@ -273,3 +277,184 @@ w = Workflow(name="Nested")
         results = lint_directory(str(tmp_path))
         assert len(results) == 1
         assert "pycache" not in results[0].file_path
+
+
+class TestWAG002UseConditionBuilders:
+    """Tests for WAG002: Use condition builders."""
+
+    def test_detect_hardcoded_always(self):
+        """Detect hardcoded always() condition."""
+        rule = WAG002UseConditionBuilders()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step = Step(if_="${{ always() }}")
+''', "test.py")
+        assert len(errors) == 1
+        assert "always()" in errors[0].message
+
+    def test_detect_hardcoded_failure(self):
+        """Detect hardcoded failure() condition."""
+        rule = WAG002UseConditionBuilders()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step = Step(if_="${{ failure() }}")
+''', "test.py")
+        assert len(errors) == 1
+        assert "failure()" in errors[0].message
+
+    def test_detect_hardcoded_success(self):
+        """Detect hardcoded success() condition."""
+        rule = WAG002UseConditionBuilders()
+        errors = rule.check('''
+from wetwire_github.workflow import Job
+job = Job(runs_on="ubuntu-latest", if_="${{ success() }}")
+''', "test.py")
+        assert len(errors) == 1
+        assert "success()" in errors[0].message
+
+    def test_detect_hardcoded_cancelled(self):
+        """Detect hardcoded cancelled() condition."""
+        rule = WAG002UseConditionBuilders()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step = Step(if_="${{ cancelled() }}")
+''', "test.py")
+        assert len(errors) == 1
+        assert "cancelled()" in errors[0].message
+
+    def test_allow_condition_builder_calls(self):
+        """Allow typed condition builder calls."""
+        rule = WAG002UseConditionBuilders()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import always
+step = Step(if_=always())
+''', "test.py")
+        assert len(errors) == 0
+
+    def test_allow_other_conditions(self):
+        """Allow other condition expressions."""
+        rule = WAG002UseConditionBuilders()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step = Step(if_="${{ github.event_name == 'push' }}")
+''', "test.py")
+        # This is a general expression, not a condition builder pattern
+        assert len(errors) == 0
+
+
+class TestWAG003UseSecretsContext:
+    """Tests for WAG003: Use secrets context."""
+
+    def test_detect_hardcoded_secret(self):
+        """Detect hardcoded secrets access."""
+        rule = WAG003UseSecretsContext()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step = Step(env={"TOKEN": "${{ secrets.GITHUB_TOKEN }}"})
+''', "test.py")
+        assert len(errors) == 1
+        assert "Secrets.get" in errors[0].message
+        assert "GITHUB_TOKEN" in errors[0].message
+
+    def test_detect_multiple_secrets(self):
+        """Detect multiple hardcoded secrets."""
+        rule = WAG003UseSecretsContext()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step = Step(
+    env={
+        "TOKEN": "${{ secrets.GITHUB_TOKEN }}",
+        "API_KEY": "${{ secrets.API_KEY }}",
+    }
+)
+''', "test.py")
+        assert len(errors) == 2
+
+    def test_allow_secrets_context(self):
+        """Allow Secrets.get() helper."""
+        rule = WAG003UseSecretsContext()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import Secrets
+step = Step(env={"TOKEN": Secrets.get("GITHUB_TOKEN")})
+''', "test.py")
+        assert len(errors) == 0
+
+
+class TestWAG004UseMatrixBuilder:
+    """Tests for WAG004: Use Matrix builder."""
+
+    def test_detect_raw_strategy_dict(self):
+        """Detect raw dict for strategy."""
+        rule = WAG004UseMatrixBuilder()
+        errors = rule.check('''
+from wetwire_github.workflow import Job
+job = Job(
+    runs_on="ubuntu-latest",
+    strategy={"matrix": {"os": ["ubuntu", "windows"]}}
+)
+''', "test.py")
+        assert len(errors) == 1
+        assert "Strategy class" in errors[0].message
+
+    def test_detect_raw_matrix_dict(self):
+        """Detect raw dict for matrix inside Strategy."""
+        rule = WAG004UseMatrixBuilder()
+        errors = rule.check('''
+from wetwire_github.workflow import Job, Strategy
+job = Job(
+    runs_on="ubuntu-latest",
+    strategy=Strategy(matrix={"os": ["ubuntu", "windows"]})
+)
+''', "test.py")
+        assert len(errors) == 1
+        assert "Matrix class" in errors[0].message
+
+    def test_allow_strategy_with_matrix_class(self):
+        """Allow Strategy with Matrix class."""
+        rule = WAG004UseMatrixBuilder()
+        errors = rule.check('''
+from wetwire_github.workflow import Job, Strategy, Matrix
+job = Job(
+    runs_on="ubuntu-latest",
+    strategy=Strategy(matrix=Matrix(values={"os": ["ubuntu", "windows"]}))
+)
+''', "test.py")
+        assert len(errors) == 0
+
+
+class TestWAG005ExtractInlineEnvVariables:
+    """Tests for WAG005: Extract inline env variables."""
+
+    def test_detect_repeated_env_vars(self):
+        """Detect same env var in multiple steps."""
+        rule = WAG005ExtractInlineEnvVariables()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step1 = Step(run="echo $DEBUG", env={"DEBUG": "true"})
+step2 = Step(run="echo $DEBUG", env={"DEBUG": "true"})
+''', "test.py")
+        assert len(errors) == 1
+        assert "DEBUG" in errors[0].message
+        assert "2 steps" in errors[0].message
+
+    def test_allow_unique_env_vars(self):
+        """Allow unique env vars per step."""
+        rule = WAG005ExtractInlineEnvVariables()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step1 = Step(run="echo $FOO", env={"FOO": "1"})
+step2 = Step(run="echo $BAR", env={"BAR": "2"})
+''', "test.py")
+        assert len(errors) == 0
+
+    def test_allow_single_occurrence(self):
+        """Allow env var used in single step."""
+        rule = WAG005ExtractInlineEnvVariables()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step1 = Step(run="echo $DEBUG", env={"DEBUG": "true"})
+step2 = Step(run="echo hello")
+''', "test.py")
+        assert len(errors) == 0
