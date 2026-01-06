@@ -265,8 +265,20 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 def cmd_list(args: argparse.Namespace) -> int:
     """Execute list command."""
-    print(f"List command not yet implemented (package={args.package})")
-    return 1
+    from wetwire_github.cli.list_cmd import list_resources
+
+    # Use current directory if no package specified
+    package_path = args.package or "."
+
+    exit_code, output = list_resources(
+        package_path=package_path,
+        output_format=args.format,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
 
 
 def cmd_lint(args: argparse.Namespace) -> int:
