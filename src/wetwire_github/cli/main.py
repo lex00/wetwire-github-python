@@ -343,8 +343,17 @@ def cmd_design(args: argparse.Namespace) -> int:
 
 def cmd_test(args: argparse.Namespace) -> int:
     """Execute test command."""
-    print("Test command not yet implemented")
-    return 1
+    from wetwire_github.cli.test_cmd import run_persona_tests
+
+    exit_code, output = run_persona_tests(
+        persona=args.persona,
+        scenario=args.scenario,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
 
 
 def cmd_graph(args: argparse.Namespace) -> int:
