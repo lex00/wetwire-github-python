@@ -5,6 +5,8 @@ when writing GitHub workflow definitions in Python.
 """
 
 from .linter import (
+    FixableRule,
+    FixResult,
     Linter,
     LintError,
     LintResult,
@@ -14,6 +16,8 @@ from .linter import (
 )
 
 __all__ = [
+    "FixResult",
+    "FixableRule",
     "LintError",
     "LintResult",
     "Linter",

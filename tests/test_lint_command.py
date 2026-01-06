@@ -226,3 +226,152 @@ class TestLintCommandFix:
         # Command should accept the flag (even if fix not implemented)
         # 0 or 1 is acceptable, 2 would indicate parsing error
         assert result.returncode in (0, 1)
+
+    def test_fix_secrets_pattern(self, tmp_path):
+        """--fix replaces hardcoded secrets with Secrets.get()."""
+        pkg_dir = tmp_path / "workflows"
+        pkg_dir.mkdir()
+        (pkg_dir / "__init__.py").write_text("")
+
+        # Code with hardcoded secrets
+        code_with_secrets = '''
+from wetwire_github.workflow import Step
+
+step = Step(env={"TOKEN": "${{ secrets.GITHUB_TOKEN }}"})
+'''
+        (pkg_dir / "ci.py").write_text(code_with_secrets)
+
+        subprocess.run(
+            [
+                sys.executable, "-m", "wetwire_github.cli", "lint",
+                "--fix", str(pkg_dir),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # Check that the file was modified
+        fixed_code = (pkg_dir / "ci.py").read_text()
+        assert 'Secrets.get("GITHUB_TOKEN")' in fixed_code
+        assert "${{ secrets.GITHUB_TOKEN }}" not in fixed_code
+
+    def test_fix_multiple_secrets(self, tmp_path):
+        """--fix handles multiple secrets in one file."""
+        pkg_dir = tmp_path / "workflows"
+        pkg_dir.mkdir()
+        (pkg_dir / "__init__.py").write_text("")
+
+        code_with_secrets = '''
+from wetwire_github.workflow import Step
+
+step1 = Step(env={"TOKEN": "${{ secrets.GITHUB_TOKEN }}"})
+step2 = Step(env={"API_KEY": "${{ secrets.API_KEY }}"})
+'''
+        (pkg_dir / "ci.py").write_text(code_with_secrets)
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "wetwire_github.cli", "lint",
+                "--fix", str(pkg_dir),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        fixed_code = (pkg_dir / "ci.py").read_text()
+        assert 'Secrets.get("GITHUB_TOKEN")' in fixed_code
+        assert 'Secrets.get("API_KEY")' in fixed_code
+        assert "Fixed" in result.stdout
+
+    def test_fix_json_output(self, tmp_path):
+        """--fix with -f json produces valid JSON output."""
+        pkg_dir = tmp_path / "workflows"
+        pkg_dir.mkdir()
+        (pkg_dir / "__init__.py").write_text("")
+
+        code_with_secrets = '''
+from wetwire_github.workflow import Step
+step = Step(env={"TOKEN": "${{ secrets.TOKEN }}"})
+'''
+        (pkg_dir / "ci.py").write_text(code_with_secrets)
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "wetwire_github.cli", "lint",
+                "--fix", "-f", "json", str(pkg_dir),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # Should produce valid JSON
+        data = json.loads(result.stdout)
+        assert "fixed_count" in data
+        assert "remaining_count" in data
+        assert data["fixed_count"] >= 1
+
+    def test_fix_no_changes_needed(self, tmp_path):
+        """--fix reports no changes when code is clean."""
+        pkg_dir = tmp_path / "workflows"
+        pkg_dir.mkdir()
+        (pkg_dir / "__init__.py").write_text("")
+
+        clean_code = '''
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import Secrets
+
+step = Step(env={"TOKEN": Secrets.get("TOKEN")})
+'''
+        (pkg_dir / "ci.py").write_text(clean_code)
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "wetwire_github.cli", "lint",
+                "--fix", str(pkg_dir),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode in (0, 1)
+
+
+class TestLinterAutoFix:
+    """Unit tests for linter auto-fix functionality."""
+
+    def test_linter_fix_method_exists(self):
+        """Linter has a fix method."""
+        from wetwire_github.linter import Linter
+
+        linter = Linter()
+        assert hasattr(linter, "fix")
+        assert callable(linter.fix)
+
+    def test_fix_result_dataclass(self):
+        """FixResult dataclass exists and has expected fields."""
+        from wetwire_github.linter import FixResult
+
+        result = FixResult(source="test", fixed_count=1)
+        assert result.source == "test"
+        assert result.fixed_count == 1
+        assert result.remaining_errors == []
+
+    def test_fixable_rule_protocol(self):
+        """FixableRule protocol can be checked."""
+        from wetwire_github.linter import FixableRule
+        from wetwire_github.linter.rules import WAG003UseSecretsContext
+
+        rule = WAG003UseSecretsContext()
+        assert isinstance(rule, FixableRule)
+
+    def test_wag003_fix_method(self):
+        """WAG003 rule has working fix method."""
+        from wetwire_github.linter.rules import WAG003UseSecretsContext
+
+        rule = WAG003UseSecretsContext()
+        source = 'env={"TOKEN": "${{ secrets.GITHUB_TOKEN }}"}'
+        fixed_source, count, errors = rule.fix(source, "test.py")
+
+        assert count == 1
+        assert 'Secrets.get("GITHUB_TOKEN")' in fixed_source
+        assert len(errors) == 0

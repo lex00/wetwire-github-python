@@ -291,7 +291,7 @@ class WAG003UseSecretsContext(BaseRule):
     """WAG003: Use secrets context for secrets access.
 
     Detects hardcoded secrets access like ${{ secrets.TOKEN }} and
-    suggests using Secrets.get() helper.
+    suggests using Secrets.get() helper. Supports auto-fix.
     """
 
     # Pattern to find secrets access
@@ -329,6 +329,31 @@ class WAG003UseSecretsContext(BaseRule):
                     )
 
         return errors
+
+    def fix(
+        self, source: str, file_path: str
+    ) -> tuple[str, int, list[LintError]]:
+        """Fix hardcoded secrets access by replacing with Secrets.get().
+
+        Returns:
+            Tuple of (fixed_source, fixed_count, remaining_errors)
+        """
+        fixed_count = 0
+        fixed_source = source
+
+        # Find all matches and replace them
+        def replace_secret(match: re.Match[str]) -> str:
+            nonlocal fixed_count
+            fixed_count += 1
+            secret_name = match.group(1)
+            return f'Secrets.get("{secret_name}")'
+
+        fixed_source = self._SECRETS_PATTERN.sub(replace_secret, fixed_source)
+
+        # Check if there are any remaining issues (shouldn't be after fix)
+        remaining_errors = self.check(fixed_source, file_path)
+
+        return fixed_source, fixed_count, remaining_errors
 
 
 class WAG004UseMatrixBuilder(BaseRule):
