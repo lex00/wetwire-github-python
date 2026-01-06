@@ -68,15 +68,15 @@ def resolve_module_path(file_path: str, package_root: str) -> str:
     Returns:
         Dotted module path (e.g., "mypackage.workflows.ci")
     """
-    file_path = Path(file_path)
-    package_root = Path(package_root)
+    file_path_obj = Path(file_path)
+    package_root_obj = Path(package_root)
 
     # Get relative path from package root
     try:
-        rel_path = file_path.relative_to(package_root)
+        rel_path = file_path_obj.relative_to(package_root_obj)
     except ValueError:
         # File is not under package root
-        return file_path.stem
+        return file_path_obj.stem
 
     # Convert path to module path
     parts = list(rel_path.parts)
