@@ -72,7 +72,11 @@ def _is_empty(value: Any) -> bool:
 
 def _serialize_value(value: Any) -> Any:
     """Recursively serialize a value."""
-    if is_dataclass(value) and not isinstance(value, type):
+    if _is_form_element(value):
+        # Import here to avoid circular imports
+        from wetwire_github.issue_templates.types import _serialize_form_element
+        return _serialize_form_element(value)
+    elif is_dataclass(value) and not isinstance(value, type):
         return to_dict(value)
     elif isinstance(value, Enum):
         return value.value
@@ -95,6 +99,16 @@ def _is_matrix_class(obj: Any) -> bool:
         is_dataclass(obj)
         and not isinstance(obj, type)
         and obj.__class__.__name__ == "Matrix"
+    )
+
+
+def _is_form_element(obj: Any) -> bool:
+    """Check if obj is a form element from issue_templates."""
+    return (
+        is_dataclass(obj)
+        and not isinstance(obj, type)
+        and obj.__class__.__name__ in ("Input", "Textarea", "Dropdown", "Checkboxes", "Markdown")
+        and hasattr(obj, "type")
     )
 
 
