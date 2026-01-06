@@ -18,7 +18,15 @@ All notable changes to this project will be documented in this file.
 - Action code generation for typed wrappers
 - AST-based workflow discovery in Python packages
 - Actionlint integration for YAML validation
-- Linter rules (WAG001-WAG003) for workflow quality
+- Linter rules (WAG001-WAG008) for workflow quality
+  - WAG001: Use typed action wrappers
+  - WAG002: Use condition builders
+  - WAG003: Use secrets context (with auto-fix)
+  - WAG004: Use Matrix builder
+  - WAG005: Extract inline env variables
+  - WAG006: Duplicate workflow names
+  - WAG007: File too large
+  - WAG008: Hardcoded expressions
 - YAML parser for importing existing workflows
 - Runner for extracting workflow values
 - Template builder for YAML generation
@@ -26,9 +34,10 @@ All notable changes to this project will be documented in this file.
 #### CLI Commands (Phase 3)
 - `build` - Generate YAML from Python declarations
 - `validate` - Validate YAML with actionlint
-- `lint` - Apply code quality rules
+- `lint` - Apply code quality rules (with --fix support)
 - `import` - Convert YAML to Python code
 - `list` - List discovered workflows and jobs
+- `init` - Create new project scaffold
 - `design` - AI-assisted design (requires wetwire-core)
 - `test` - Persona-based testing (requires wetwire-core)
 - `graph` - Generate DAG visualization (Mermaid/DOT)

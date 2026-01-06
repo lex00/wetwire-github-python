@@ -41,13 +41,16 @@ ci = Workflow(
 ### CLI Commands
 
 ```bash
+# Create a new project
+wetwire-github init [name]
+
 # Generate YAML from Python declarations
 wetwire-github build [package]
 
 # Validate YAML files with actionlint
 wetwire-github validate [files...]
 
-# Lint Python workflow code
+# Lint Python workflow code (--fix for auto-fix)
 wetwire-github lint [package]
 
 # Import existing YAML to Python
