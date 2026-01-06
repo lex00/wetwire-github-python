@@ -328,8 +328,17 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_design(args: argparse.Namespace) -> int:
     """Execute design command."""
-    print("Design command not yet implemented")
-    return 1
+    from wetwire_github.cli.design_cmd import design_workflow
+
+    exit_code, output = design_workflow(
+        stream=args.stream,
+        max_lint_cycles=args.max_lint_cycles,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
 
 
 def cmd_test(args: argparse.Namespace) -> int:
