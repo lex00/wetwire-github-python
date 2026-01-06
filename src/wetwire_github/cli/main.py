@@ -250,8 +250,17 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 def cmd_validate(args: argparse.Namespace) -> int:
     """Execute validate command."""
-    print(f"Validate command not yet implemented (files={args.files})")
-    return 1
+    from wetwire_github.cli.validate import validate_files
+
+    exit_code, output = validate_files(
+        file_paths=args.files or [],
+        output_format=args.format,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
 
 
 def cmd_list(args: argparse.Namespace) -> int:
