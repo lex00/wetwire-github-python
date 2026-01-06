@@ -1,0 +1,275 @@
+"""Tests for Python code linter rules."""
+
+from wetwire_github.linter import (
+    Linter,
+    LintError,
+    LintResult,
+    lint_directory,
+    lint_file,
+)
+from wetwire_github.linter.rules import (
+    WAG001TypedActionWrappers,
+    WAG006DuplicateWorkflowNames,
+    WAG007FileTooLarge,
+    WAG008HardcodedExpressions,
+)
+
+
+class TestLintError:
+    """Tests for LintError dataclass."""
+
+    def test_lint_error(self):
+        """LintError stores error details."""
+        error = LintError(
+            rule_id="WAG001",
+            message="Use typed action wrappers instead of raw strings",
+            file_path="/path/to/file.py",
+            line=10,
+            column=5,
+        )
+        assert error.rule_id == "WAG001"
+        assert error.line == 10
+        assert error.file_path == "/path/to/file.py"
+
+    def test_lint_error_with_suggestion(self):
+        """LintError can include fix suggestion."""
+        error = LintError(
+            rule_id="WAG001",
+            message="Use typed action wrappers",
+            file_path="/test.py",
+            line=1,
+            column=1,
+            suggestion="Replace with: checkout()",
+        )
+        assert error.suggestion == "Replace with: checkout()"
+
+
+class TestLintResult:
+    """Tests for LintResult dataclass."""
+
+    def test_lint_result_clean(self):
+        """LintResult for clean code."""
+        result = LintResult(errors=[])
+        assert result.is_clean is True
+        assert len(result.errors) == 0
+
+    def test_lint_result_with_errors(self):
+        """LintResult with errors."""
+        errors = [
+            LintError("WAG001", "test", "/test.py", 1, 1),
+        ]
+        result = LintResult(errors=errors)
+        assert result.is_clean is False
+        assert len(result.errors) == 1
+
+
+class TestRuleProtocol:
+    """Tests for Rule protocol."""
+
+    def test_rule_has_id(self):
+        """Rules have an id."""
+        rule = WAG001TypedActionWrappers()
+        assert rule.id == "WAG001"
+
+    def test_rule_has_description(self):
+        """Rules have a description."""
+        rule = WAG001TypedActionWrappers()
+        assert len(rule.description) > 0
+
+    def test_rule_has_check_method(self):
+        """Rules have a check method."""
+        rule = WAG001TypedActionWrappers()
+        assert callable(rule.check)
+
+
+class TestLinter:
+    """Tests for Linter class."""
+
+    def test_linter_default_rules(self):
+        """Linter has default rules enabled."""
+        linter = Linter()
+        assert len(linter.rules) > 0
+
+    def test_linter_custom_rules(self):
+        """Linter can use custom rules."""
+        rule = WAG001TypedActionWrappers()
+        linter = Linter(rules=[rule])
+        assert len(linter.rules) == 1
+
+    def test_linter_check_code(self):
+        """Linter checks code against rules."""
+        linter = Linter()
+        result = linter.check('''
+from wetwire_github.workflow import Workflow
+w = Workflow(name="CI")
+''', file_path="test.py")
+        assert isinstance(result, LintResult)
+
+
+class TestWAG001TypedActionWrappers:
+    """Tests for WAG001: Use typed action wrappers."""
+
+    def test_detect_raw_uses_string(self):
+        """Detect raw 'uses' string literals."""
+        rule = WAG001TypedActionWrappers()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step = Step(uses="actions/checkout@v4")
+''', "test.py")
+        assert len(errors) == 1
+        assert "typed action wrapper" in errors[0].message.lower()
+
+    def test_allow_typed_action_calls(self):
+        """Allow typed action function calls."""
+        rule = WAG001TypedActionWrappers()
+        errors = rule.check('''
+from wetwire_github.actions import checkout
+step = checkout(ref="main")
+''', "test.py")
+        assert len(errors) == 0
+
+    def test_allow_unknown_actions(self):
+        """Allow actions not in our wrappers."""
+        rule = WAG001TypedActionWrappers()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step = Step(uses="owner/custom-action@v1")
+''', "test.py")
+        # Custom actions are allowed
+        assert len(errors) == 0
+
+
+class TestWAG006DuplicateWorkflowNames:
+    """Tests for WAG006: Duplicate workflow names."""
+
+    def test_detect_duplicate_names(self):
+        """Detect duplicate workflow names in same file."""
+        rule = WAG006DuplicateWorkflowNames()
+        errors = rule.check('''
+from wetwire_github.workflow import Workflow
+ci1 = Workflow(name="CI")
+ci2 = Workflow(name="CI")
+''', "test.py")
+        assert len(errors) >= 1
+        assert "duplicate" in errors[0].message.lower()
+
+    def test_allow_unique_names(self):
+        """Allow unique workflow names."""
+        rule = WAG006DuplicateWorkflowNames()
+        errors = rule.check('''
+from wetwire_github.workflow import Workflow
+ci = Workflow(name="CI")
+deploy = Workflow(name="Deploy")
+''', "test.py")
+        assert len(errors) == 0
+
+
+class TestWAG007FileTooLarge:
+    """Tests for WAG007: File too large."""
+
+    def test_detect_too_many_jobs(self):
+        """Detect files with too many jobs."""
+        rule = WAG007FileTooLarge(max_jobs=2)
+        errors = rule.check('''
+from wetwire_github.workflow import Job
+job1 = Job(runs_on="ubuntu-latest")
+job2 = Job(runs_on="ubuntu-latest")
+job3 = Job(runs_on="ubuntu-latest")
+''', "test.py")
+        assert len(errors) == 1
+        assert "too many" in errors[0].message.lower()
+
+    def test_allow_few_jobs(self):
+        """Allow files with few jobs."""
+        rule = WAG007FileTooLarge(max_jobs=10)
+        errors = rule.check('''
+from wetwire_github.workflow import Job
+job1 = Job(runs_on="ubuntu-latest")
+job2 = Job(runs_on="ubuntu-latest")
+''', "test.py")
+        assert len(errors) == 0
+
+
+class TestWAG008HardcodedExpressions:
+    """Tests for WAG008: Hardcoded expression strings."""
+
+    def test_detect_hardcoded_expression(self):
+        """Detect hardcoded ${{ }} expressions."""
+        rule = WAG008HardcodedExpressions()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+step = Step(env={"TOKEN": "${{ secrets.GITHUB_TOKEN }}"})
+''', "test.py")
+        assert len(errors) == 1
+        assert "hardcoded" in errors[0].message.lower() or "expression" in errors[0].message.lower()
+
+    def test_allow_expression_objects(self):
+        """Allow Expression objects."""
+        rule = WAG008HardcodedExpressions()
+        errors = rule.check('''
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import secrets
+step = Step(env={"TOKEN": secrets.GITHUB_TOKEN})
+''', "test.py")
+        assert len(errors) == 0
+
+
+class TestLintFile:
+    """Tests for lint_file function."""
+
+    def test_lint_file(self, tmp_path):
+        """Lint a Python file."""
+        file_path = tmp_path / "workflows.py"
+        file_path.write_text('''
+from wetwire_github.workflow import Workflow
+ci = Workflow(name="CI")
+''')
+        result = lint_file(str(file_path))
+        assert isinstance(result, LintResult)
+
+    def test_lint_file_handles_syntax_error(self, tmp_path):
+        """Handle syntax errors gracefully."""
+        file_path = tmp_path / "broken.py"
+        file_path.write_text('''def incomplete(''')
+        result = lint_file(str(file_path))
+        # Should return errors or empty result, not crash
+        assert isinstance(result, LintResult)
+
+
+class TestLintDirectory:
+    """Tests for lint_directory function."""
+
+    def test_lint_directory(self, tmp_path):
+        """Lint all Python files in directory."""
+        (tmp_path / "file1.py").write_text('''
+from wetwire_github.workflow import Workflow
+ci = Workflow(name="CI")
+''')
+        (tmp_path / "file2.py").write_text('''
+from wetwire_github.workflow import Job
+job = Job(runs_on="ubuntu-latest")
+''')
+        results = lint_directory(str(tmp_path))
+        assert len(results) == 2
+
+    def test_lint_directory_recursive(self, tmp_path):
+        """Recursively lint subdirectories."""
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+        (subdir / "nested.py").write_text('''
+from wetwire_github.workflow import Workflow
+w = Workflow(name="Nested")
+''')
+        results = lint_directory(str(tmp_path))
+        # Should find the nested file
+        assert any("nested.py" in r.file_path for r in results)
+
+    def test_lint_directory_excludes_pycache(self, tmp_path):
+        """Exclude __pycache__ directories."""
+        pycache = tmp_path / "__pycache__"
+        pycache.mkdir()
+        (pycache / "cached.py").write_text('''test''')
+        (tmp_path / "regular.py").write_text('''x = 1''')
+        results = lint_directory(str(tmp_path))
+        assert len(results) == 1
+        assert "pycache" not in results[0].file_path
