@@ -228,8 +228,24 @@ def create_parser() -> argparse.ArgumentParser:
 
 def cmd_build(args: argparse.Namespace) -> int:
     """Execute build command."""
-    print(f"Build command not yet implemented (package={args.package})")
-    return 1
+    from wetwire_github.cli.build import build_workflows
+
+    # Use current directory if no package specified
+    package_path = args.package or "."
+
+    exit_code, messages = build_workflows(
+        package_path=package_path,
+        output_dir=args.output,
+        output_format=args.format,
+    )
+
+    for msg in messages:
+        if exit_code == 0:
+            print(f"Generated: {msg}")
+        else:
+            print(msg, file=sys.stderr)
+
+    return exit_code
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
