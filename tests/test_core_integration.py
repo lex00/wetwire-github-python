@@ -1,6 +1,5 @@
 """Tests for wetwire-core integration module."""
 
-import pytest
 
 
 class TestToolDefinitions:

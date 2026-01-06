@@ -253,12 +253,13 @@ def run_all_persona_tests(
     Returns:
         Combined test results from all personas
     """
-    results = {}
+    results: dict[str, dict[str, Any]] = {}
     all_passed = True
 
     for persona in PERSONAS:
-        result = run_persona_test(persona["name"], workflow_path, scenario)
-        results[persona["name"]] = result
+        persona_name = str(persona["name"])
+        result = run_persona_test(persona_name, workflow_path, scenario)
+        results[persona_name] = result
         if not result["passed"]:
             all_passed = False
 
