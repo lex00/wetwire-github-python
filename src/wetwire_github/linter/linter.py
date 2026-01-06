@@ -86,6 +86,8 @@ class BaseRule(ABC):
 class Linter:
     """Linter for Python workflow code."""
 
+    rules: list[Rule]
+
     def __init__(self, rules: list[Rule] | None = None) -> None:
         """Initialize the linter.
 
@@ -95,8 +97,9 @@ class Linter:
         if rules is None:
             from .rules import get_default_rules
 
-            rules = get_default_rules()
-        self.rules = rules
+            self.rules = list(get_default_rules())  # type: ignore[arg-type]
+        else:
+            self.rules = rules
 
     def check(self, source: str, file_path: str = "<string>") -> LintResult:
         """Check source code against all enabled rules.
