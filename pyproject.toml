@@ -26,6 +26,7 @@ classifiers = [
 dependencies = [
     "wetwire-core",
     "dataclass-dsl>=1.0.1",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
