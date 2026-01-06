@@ -45,6 +45,9 @@ dev = [
     "ruff>=0.1",
 ]
 
+[project.scripts]
+wetwire-github = "wetwire_github.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/lex00/wetwire-github-python"
 Documentation = "https://github.com/lex00/wetwire-github-python#readme"
