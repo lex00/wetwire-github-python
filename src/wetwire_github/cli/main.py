@@ -271,8 +271,21 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 def cmd_lint(args: argparse.Namespace) -> int:
     """Execute lint command."""
-    print(f"Lint command not yet implemented (package={args.package})")
-    return 1
+    from wetwire_github.cli.lint_cmd import lint_package
+
+    # Use current directory if no package specified
+    package_path = args.package or "."
+
+    exit_code, output = lint_package(
+        package_path=package_path,
+        output_format=args.format,
+        fix=args.fix,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
 
 
 def cmd_import(args: argparse.Namespace) -> int:
