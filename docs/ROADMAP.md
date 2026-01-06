@@ -672,7 +672,7 @@ def validate_workflow(path: str) -> ValidationResult:
 | ├─ Reusable workflow (workflow_call) → YAML | 1B | [ ] | Core Types |
 | ├─ Conditions → expression strings | 1B | [ ] | Core Types |
 | ├─ Dataclass → dict serialization | 1B | [ ] | Core Types |
-| ├─ snake_case/kebab-case conversion | 1B | [ ] | — |
+| ├─ Field name case conversion (per schema spec) | 1B | [ ] | — |
 | └─ None value omission | 1B | [ ] | — |
 | **CLI Framework** | | | |
 | ├─ main.py + typer setup | 1C | [ ] | — |
@@ -704,7 +704,7 @@ def validate_workflow(path: str) -> ValidationResult:
 | └─ Intermediate representation | 2A | [ ] | Schema Fetching |
 | **Action Codegen** | | | |
 | ├─ Generator templates (Jinja2) | 2B | [ ] | Schema Parsing |
-| ├─ Code formatting (black) | 2B | [ ] | — |
+| ├─ Code formatting (ruff) | 2B | [ ] | — |
 | ├─ actions/checkout wrapper | 2B | [ ] | Schema Parsing |
 | ├─ actions/setup_python wrapper | 2B | [ ] | Schema Parsing |
 | ├─ actions/setup_node wrapper | 2B | [ ] | Schema Parsing |
