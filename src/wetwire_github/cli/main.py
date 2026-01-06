@@ -290,8 +290,22 @@ def cmd_lint(args: argparse.Namespace) -> int:
 
 def cmd_import(args: argparse.Namespace) -> int:
     """Execute import command."""
-    print(f"Import command not yet implemented (files={args.files})")
-    return 1
+    from wetwire_github.cli.import_cmd import import_workflows
+
+    exit_code, messages = import_workflows(
+        file_paths=args.files or [],
+        output_dir=args.output or ".",
+        single_file=args.single_file,
+        no_scaffold=args.no_scaffold,
+    )
+
+    for msg in messages:
+        if exit_code == 0:
+            print(msg)
+        else:
+            print(msg, file=sys.stderr)
+
+    return exit_code
 
 
 def cmd_init(args: argparse.Namespace) -> int:
