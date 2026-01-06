@@ -89,17 +89,18 @@ def _format_json(
     Returns:
         Tuple of (exit_code, json_string)
     """
-    output = {
-        "valid": all_valid,
-        "actionlint_available": actionlint_available,
-        "results": {},
-    }
-
+    results_dict: dict[str, dict] = {}
     for file_path, result in results.items():
-        output["results"][file_path] = {
+        results_dict[file_path] = {
             "valid": result.valid,
             "errors": [asdict(e) for e in result.errors],
         }
+
+    output = {
+        "valid": all_valid,
+        "actionlint_available": actionlint_available,
+        "results": results_dict,
+    }
 
     exit_code = 0 if all_valid else 1
     return exit_code, json.dumps(output, indent=2)
