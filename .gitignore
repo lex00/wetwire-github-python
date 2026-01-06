@@ -73,3 +73,7 @@ dmypy.json
 
 # ruff
 .ruff_cache/
+
+# Fetched schemas (dynamically generated)
+specs/*.json
+specs/actions/
