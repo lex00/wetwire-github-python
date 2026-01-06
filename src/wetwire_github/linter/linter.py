@@ -35,6 +35,19 @@ class LintResult:
         return len(self.errors) == 0
 
 
+@dataclass
+class FixResult:
+    """Result of applying auto-fixes to code."""
+
+    source: str
+    """The fixed source code."""
+    fixed_count: int = 0
+    """Number of issues fixed."""
+    remaining_errors: list[LintError] = field(default_factory=list)
+    """Errors that could not be auto-fixed."""
+    file_path: str = ""
+
+
 @runtime_checkable
 class Rule(Protocol):
     """Protocol for linting rules."""
@@ -58,6 +71,37 @@ class Rule(Protocol):
 
         Returns:
             List of lint errors found
+        """
+        ...
+
+
+@runtime_checkable
+class FixableRule(Protocol):
+    """Protocol for rules that support auto-fixing."""
+
+    @property
+    def id(self) -> str:
+        """Return the rule identifier."""
+        ...
+
+    @property
+    def description(self) -> str:
+        """Return a description of what the rule checks."""
+        ...
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        """Check source code and return any lint errors."""
+        ...
+
+    def fix(self, source: str, file_path: str) -> tuple[str, int, list[LintError]]:
+        """Apply fixes to source code.
+
+        Args:
+            source: Python source code to fix
+            file_path: Path to the source file
+
+        Returns:
+            Tuple of (fixed_source, fixed_count, remaining_errors)
         """
         ...
 
@@ -115,6 +159,39 @@ class Linter:
         for rule in self.rules:
             errors.extend(rule.check(source, file_path))
         return LintResult(errors=errors, file_path=file_path)
+
+    def fix(self, source: str, file_path: str = "<string>") -> FixResult:
+        """Apply auto-fixes to source code.
+
+        Applies fixes from all fixable rules. Non-fixable rules report
+        their errors as remaining.
+
+        Args:
+            source: Python source code to fix
+            file_path: Path to the source file
+
+        Returns:
+            FixResult with fixed source and remaining errors
+        """
+        fixed_source = source
+        total_fixed = 0
+        remaining_errors = []
+
+        for rule in self.rules:
+            if isinstance(rule, FixableRule):
+                fixed_source, fixed_count, errors = rule.fix(fixed_source, file_path)
+                total_fixed += fixed_count
+                remaining_errors.extend(errors)
+            else:
+                # Non-fixable rules just report errors
+                remaining_errors.extend(rule.check(fixed_source, file_path))
+
+        return FixResult(
+            source=fixed_source,
+            fixed_count=total_fixed,
+            remaining_errors=remaining_errors,
+            file_path=file_path,
+        )
 
 
 def lint_file(file_path: str, rules: list[Rule] | None = None) -> LintResult:
