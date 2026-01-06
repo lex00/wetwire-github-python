@@ -137,7 +137,11 @@ def to_dict(obj: Any) -> dict[str, Any]:
         serialized = _serialize_value(value)
 
         # Check again after serialization (nested empty dicts)
-        if not _is_empty(serialized):
+        # BUT: preserve empty dicts if the original value was a dataclass
+        # This is important for triggers like PullRequestTrigger() which
+        # serialize to {} but should still appear in the output
+        is_dataclass_value = is_dataclass(value) and not isinstance(value, type)
+        if not _is_empty(serialized) or (is_dataclass_value and serialized == {}):
             result[yaml_name] = serialized
 
     return result
