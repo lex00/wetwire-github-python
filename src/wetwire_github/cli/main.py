@@ -322,8 +322,17 @@ def cmd_import(args: argparse.Namespace) -> int:
 
 def cmd_init(args: argparse.Namespace) -> int:
     """Execute init command."""
-    print(f"Init command not yet implemented (name={args.name})")
-    return 1
+    from wetwire_github.cli.init_cmd import init_project
+
+    exit_code, messages = init_project(
+        name=args.name,
+        output_dir=args.output,
+    )
+
+    for msg in messages:
+        print(msg)
+
+    return exit_code
 
 
 def cmd_design(args: argparse.Namespace) -> int:
