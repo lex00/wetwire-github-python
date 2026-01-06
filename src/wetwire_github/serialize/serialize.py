@@ -1,6 +1,7 @@
 """Serialization functions for converting dataclasses to YAML."""
 
 from dataclasses import fields, is_dataclass
+from enum import Enum
 from typing import Any
 
 import yaml
@@ -73,6 +74,8 @@ def _serialize_value(value: Any) -> Any:
     """Recursively serialize a value."""
     if is_dataclass(value) and not isinstance(value, type):
         return to_dict(value)
+    elif isinstance(value, Enum):
+        return value.value
     elif isinstance(value, list):
         return [_serialize_value(item) for item in value]
     elif isinstance(value, dict):
