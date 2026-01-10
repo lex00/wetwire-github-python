@@ -3,64 +3,75 @@
 Persona-based testing via wetwire-core integration.
 """
 
-import importlib.util
+from pathlib import Path
+from typing import Any
 
 from wetwire_github.core_integration import (
     get_available_personas,
+    run_persona_test,
 )
+from wetwire_github.core_integration.personas import run_all_persona_tests
 
 
 def run_persona_tests(
     persona: str | None = None,
+    workflow: str | None = None,
+    threshold: int = 70,
+    all_personas: bool = False,
     scenario: str | None = None,
 ) -> tuple[int, str]:
     """Run persona-based tests for workflow code generation.
 
-    This command requires wetwire-core to be installed for full functionality.
-
     Args:
         persona: Persona to use for testing (e.g., "reviewer", "senior-dev")
+        workflow: Path to workflow YAML file to test
+        threshold: Score threshold for pass/fail (default: 70)
+        all_personas: Run all personas against the workflow
         scenario: Path to scenario configuration file
 
     Returns:
         Tuple of (exit_code, output_string)
     """
-    # Check if wetwire-core is available
-    if importlib.util.find_spec("wetwire_core") is not None:
-        return _run_tests(persona, scenario)
-    else:
-        return 1, _no_wetwire_core_message()
+    return _run_tests(persona, workflow, threshold, all_personas, scenario)
 
 
-def _no_wetwire_core_message() -> str:
-    """Return message when wetwire-core is not installed."""
-    return """Test command requires wetwire-core package.
-
-To install wetwire-core:
-    pip install wetwire-core
-
-Or add to your project dependencies:
-    wetwire-core>=0.1.0
-
-The test command provides persona-based testing:
-  - Test workflows with different reviewer personas
-  - Scenario-based quality validation
-  - Session tracking for test results
-
-For more information, visit: https://github.com/anthropics/wetwire-core
-"""
-
-
-def _run_tests(persona: str | None, scenario: str | None) -> tuple[int, str]:
+def _run_tests(
+    persona: str | None,
+    workflow: str | None,
+    threshold: int,
+    all_personas: bool,
+    scenario: str | None,
+) -> tuple[int, str]:
     """Run the actual persona tests with wetwire-core.
 
     Uses the core_integration personas module for quality testing.
     """
-    lines = []
+    lines: list[str] = []
 
     # List available personas
     personas = get_available_personas()
 
+    # If workflow is provided, run actual tests
+    if workflow:
+        workflow_path = Path(workflow)
+        if not workflow_path.exists():
+            return 1, f"Error: Workflow file not found: {workflow}"
+
+        # Build scenario dict with threshold
+        scenario_dict = {"threshold": threshold}
+        if scenario:
+            scenario_dict["file"] = scenario
+
+        if all_personas or (not persona):
+            # Run all personas against the workflow
+            result = run_all_persona_tests(str(workflow_path), scenario_dict)
+            return _format_all_results(result)
+        else:
+            # Run single persona test
+            result = run_persona_test(persona, str(workflow_path), scenario_dict)
+            return _format_single_result(result)
+
+    # No workflow provided - show persona info
     if persona:
         # Find matching persona
         persona_info = next(
@@ -81,15 +92,10 @@ def _run_tests(persona: str | None, scenario: str | None) -> tuple[int, str]:
         for criterion in persona_info.get("criteria", []):
             lines.append(f"  - {criterion}")
 
-        if scenario:
-            lines.extend([
-                "",
-                f"Scenario file: {scenario}",
-                "",
-                "To run tests against a workflow file:",
-                "  from wetwire_github.core_integration import run_persona_test",
-                f"  result = run_persona_test('{persona}', '/path/to/workflow.yaml')",
-            ])
+        lines.extend([
+            "",
+            "Use --workflow <file> to test a workflow file.",
+        ])
     else:
         # List all personas
         lines.extend([
@@ -103,6 +109,68 @@ def _run_tests(persona: str | None, scenario: str | None) -> tuple[int, str]:
         lines.extend([
             "",
             "Use --persona <name> to select a persona for testing.",
+            "Use --workflow <file> to test a workflow file.",
         ])
 
     return 0, "\n".join(lines)
+
+
+def _format_single_result(result: dict[str, Any]) -> tuple[int, str]:
+    """Format a single persona test result."""
+    lines = []
+
+    passed = result.get("passed", False)
+    persona = result.get("persona", "unknown")
+    score = result.get("score", 0)
+    threshold_val = result.get("threshold", 70)
+
+    status = "PASSED" if passed else "FAILED"
+    lines.append(f"Persona Test: {persona} - {status}")
+    lines.append(f"Score: {score}/100 (threshold: {threshold_val})")
+    lines.append("")
+
+    feedback = result.get("feedback", "")
+    if feedback:
+        lines.append(feedback)
+
+    exit_code = 0 if passed else 1
+    return exit_code, "\n".join(lines)
+
+
+def _format_all_results(result: dict[str, Any]) -> tuple[int, str]:
+    """Format results from all personas."""
+    lines = []
+
+    all_passed = result.get("all_passed", False)
+    passed_count = result.get("personas_passed", 0)
+    total_count = result.get("personas_total", 0)
+
+    lines.append(f"Persona Test Results: {passed_count}/{total_count} passed")
+    lines.append("")
+
+    results = result.get("results", {})
+    for persona_name, persona_result in results.items():
+        passed = persona_result.get("passed", False)
+        score = persona_result.get("score", 0)
+        status = "PASS" if passed else "FAIL"
+        lines.append(f"  {persona_name}: {status} ({score}/100)")
+
+    lines.append("")
+
+    # Show detailed feedback for failed personas
+    failed = [
+        (name, res)
+        for name, res in results.items()
+        if not res.get("passed", True)
+    ]
+
+    if failed:
+        lines.append("Failed persona details:")
+        for name, res in failed:
+            lines.append(f"\n--- {name} ---")
+            feedback = res.get("feedback", "")
+            if feedback:
+                lines.append(feedback)
+
+    exit_code = 0 if all_passed else 1
+    return exit_code, "\n".join(lines)
