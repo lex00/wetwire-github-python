@@ -25,6 +25,7 @@ KNOWN_ACTIONS = {
     "actions/setup-python",
     "actions/upload-artifact",
     "actions/upload-pages-artifact",
+    "actions/upload-release-asset",
 }
 
 
@@ -105,6 +106,7 @@ class WAG001TypedActionWrappers(BaseRule):
             "actions/setup-python": "setup_python",
             "actions/upload-artifact": "upload_artifact",
             "actions/upload-pages-artifact": "upload_pages_artifact",
+            "actions/upload-release-asset": "upload_release_asset",
         }
 
         # Pattern to find Step(uses="actions/...@v...")

@@ -14,9 +14,17 @@ from .expressions import (
     always,
     branch,
     cancelled,
+    contains,
+    endsWith,
     failure,
+    format,
+    fromJson,
+    hashFiles,
+    join,
+    startsWith,
     success,
     tag,
+    toJson,
 )
 from .expressions import (
     Matrix as MatrixContext,
@@ -165,4 +173,13 @@ __all__ = [
     "cancelled",
     "branch",
     "tag",
+    # Expression functions
+    "contains",
+    "startsWith",
+    "endsWith",
+    "format",
+    "hashFiles",
+    "join",
+    "toJson",
+    "fromJson",
 ]

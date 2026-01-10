@@ -124,6 +124,7 @@ def setup_actions(namespace: dict[str, Any]) -> None:
         checkout,
         create_github_app_token,
         download_artifact,
+        gh_pages,
         labeler,
         setup_go,
         setup_java,
@@ -131,6 +132,7 @@ def setup_actions(namespace: dict[str, Any]) -> None:
         setup_python,
         upload_artifact,
         upload_pages_artifact,
+        upload_release_asset,
     )
 
     namespace.update(
@@ -142,10 +144,12 @@ def setup_actions(namespace: dict[str, Any]) -> None:
             "setup_java": setup_java,
             "cache": cache,
             "create_github_app_token": create_github_app_token,
+            "gh_pages": gh_pages,
             "labeler": labeler,
             "upload_artifact": upload_artifact,
             "download_artifact": download_artifact,
             "upload_pages_artifact": upload_pages_artifact,
+            "upload_release_asset": upload_release_asset,
         }
     )
 
