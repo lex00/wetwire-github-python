@@ -36,6 +36,9 @@ dev = [
     "pytest-cov>=4.1",
     "ruff>=0.1",
 ]
+mcp = [
+    "mcp>=1.0.0",
+]
 
 [dependency-groups]
 dev = [

@@ -47,10 +47,13 @@ esac
 
 cd "$PROJECT_ROOT"
 
-echo "Running type check: uv run ty check $CHECK_PATH"
+# Exclude files with optional dependencies that may not be installed
+EXCLUDE_OPTS="--exclude **/mcp_server.py"
+
+echo "Running type check: uv run ty check $EXCLUDE_OPTS $CHECK_PATH"
 echo ""
 
-uv run ty check $CHECK_PATH
+uv run ty check $EXCLUDE_OPTS $CHECK_PATH
 
 echo ""
 echo "✓ Type checking complete"
