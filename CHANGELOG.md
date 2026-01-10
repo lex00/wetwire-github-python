@@ -70,6 +70,10 @@ All notable changes to this project will be documented in this file.
   - `detect_cycles()` - Cycle detection in dependency graphs
   - `to_mermaid()` / `to_dot()` - Visualization output
   - Refactored `graph_cmd.py` to use the new module
+- GitHub context pseudo-parameters (`wetwire_github.pseudo`)
+  - Constants for common GitHub context values (GITHUB_REF, GITHUB_SHA, etc.)
+  - Follows AWS pseudo-parameter pattern for consistency
+  - IDE autocomplete and type safety for GitHub contexts
 
 ## [0.1.0] - 2026-01-06
 
