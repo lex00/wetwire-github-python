@@ -20,6 +20,7 @@ def design_workflow(
     prompt: str | None = None,
     tool: str | None = None,
     tool_args: dict[str, Any] | None = None,
+    provider: str = "anthropic",
 ) -> tuple[int, str]:
     """Run AI-assisted workflow design session.
 
@@ -30,6 +31,7 @@ def design_workflow(
         prompt: Initial prompt for design session
         tool: Tool to execute directly (for scripting)
         tool_args: Arguments for direct tool execution
+        provider: AI provider to use ('anthropic' or 'kiro')
 
     Returns:
         Tuple of (exit_code, output_string)
@@ -38,8 +40,11 @@ def design_workflow(
     if tool:
         return _execute_tool(tool, tool_args or {})
 
-    # Run the design session
-    return _run_design_session(stream, max_lint_cycles, output_dir, prompt)
+    # Run the design session based on provider
+    if provider == "kiro":
+        return _run_kiro_design_session(output_dir, prompt)
+    else:
+        return _run_design_session(stream, max_lint_cycles, output_dir, prompt)
 
 
 def _execute_tool(tool_name: str, arguments: dict[str, Any]) -> tuple[int, str]:
@@ -127,3 +132,20 @@ def _run_design_session(
         handler.write(output)
 
     return 0, output
+
+
+def _run_kiro_design_session(
+    output_dir: str | None,
+    prompt: str | None,
+) -> tuple[int, str]:
+    """Run design session using Kiro CLI provider.
+
+    Uses the kiro module for AI-assisted workflow design with Kiro CLI.
+    """
+    try:
+        from wetwire_github.kiro import launch_kiro
+    except ImportError:
+        return 1, "Kiro integration requires mcp package.\nInstall with: pip install wetwire-github[kiro]"
+
+    exit_code = launch_kiro(prompt=prompt)
+    return exit_code, ""

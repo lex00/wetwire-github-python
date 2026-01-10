@@ -359,6 +359,12 @@ wetwire-github design --stream
 
 # Limit lint feedback cycles
 wetwire-github design --max-lint-cycles 5
+
+# Use Kiro CLI provider instead of Anthropic API
+wetwire-github design --provider kiro
+
+# Use Kiro with an initial prompt
+wetwire-github design --provider kiro --prompt "Create a CI workflow for Python"
 ```
 
 ### Options
@@ -367,10 +373,14 @@ wetwire-github design --max-lint-cycles 5
 |--------|-------------|
 | `--stream` | Enable streaming output |
 | `--max-lint-cycles N` | Maximum lint feedback cycles (default: 3) |
+| `-p, --provider` | AI provider: `anthropic` (default) or `kiro` |
+| `--prompt` | Initial prompt for design session |
+| `-o, --output` | Output directory for generated workflows |
 
 ### Requirements
 
-Requires `wetwire-core` and `ANTHROPIC_API_KEY` environment variable.
+- **Anthropic provider** (default): Requires `wetwire-core` and `ANTHROPIC_API_KEY` environment variable.
+- **Kiro provider**: Requires Kiro CLI to be installed.
 
 ### How It Works
 
@@ -406,6 +416,12 @@ wetwire-github test --persona beginner
 
 # Run with scenario file
 wetwire-github test --scenario scenarios/ci-workflow.yaml
+
+# Use Kiro CLI provider for testing
+wetwire-github test --provider kiro --workflow .github/workflows/ci.yml
+
+# Test all personas against a workflow
+wetwire-github test --all --workflow .github/workflows/ci.yml
 ```
 
 ### Options
@@ -413,11 +429,16 @@ wetwire-github test --scenario scenarios/ci-workflow.yaml
 | Option | Description |
 |--------|-------------|
 | `--persona NAME` | Persona to use: `beginner`, `intermediate`, `expert`, `terse`, `verbose` |
+| `--workflow FILE` | Workflow YAML file to test |
+| `--threshold N` | Score threshold for pass/fail (default: 70) |
+| `--all` | Run all personas against the workflow |
 | `--scenario FILE` | Scenario configuration file |
+| `-p, --provider` | AI provider: `anthropic` (default) or `kiro` |
 
 ### Requirements
 
-Requires `wetwire-core` and `ANTHROPIC_API_KEY` environment variable.
+- **Anthropic provider** (default): Requires `wetwire-core` and `ANTHROPIC_API_KEY` environment variable.
+- **Kiro provider**: Requires Kiro CLI to be installed.
 
 ### Available Personas
 

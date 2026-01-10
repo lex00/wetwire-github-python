@@ -146,6 +146,47 @@ class TestDesignCommand:
         )
         assert result.returncode == 0
 
+    def test_design_provider_flag_in_help(self):
+        """Design command shows --provider flag in help."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "design", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "--provider" in result.stdout
+
+    def test_design_provider_anthropic_accepted(self):
+        """Design command accepts --provider anthropic without error."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "design", "--provider", "anthropic"],
+            capture_output=True,
+            text=True,
+        )
+        # Should not fail argument parsing (returncode 2 means argparse error)
+        assert result.returncode != 2, f"argparse rejected --provider: {result.stderr}"
+
+    def test_design_provider_kiro_accepted(self):
+        """Design command accepts --provider kiro without error."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "design", "--provider", "kiro"],
+            capture_output=True,
+            text=True,
+        )
+        # Should not fail argument parsing (returncode 2 means argparse error)
+        assert result.returncode != 2, f"argparse rejected --provider: {result.stderr}"
+
+    def test_design_provider_invalid_rejected(self):
+        """Design command rejects invalid --provider value."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "design", "--provider", "invalid"],
+            capture_output=True,
+            text=True,
+        )
+        # argparse should reject invalid choice
+        assert result.returncode == 2
+        assert "invalid" in result.stderr.lower()
+
 
 class TestTestCommand:
     """Tests for test command stub."""
@@ -158,6 +199,47 @@ class TestTestCommand:
             text=True,
         )
         assert result.returncode == 0
+
+    def test_test_provider_flag_in_help(self):
+        """Test command shows --provider flag in help."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "test", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "--provider" in result.stdout
+
+    def test_test_provider_anthropic_accepted(self):
+        """Test command accepts --provider anthropic without error."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "test", "--provider", "anthropic"],
+            capture_output=True,
+            text=True,
+        )
+        # Should not fail argument parsing (returncode 2 means argparse error)
+        assert result.returncode != 2, f"argparse rejected --provider: {result.stderr}"
+
+    def test_test_provider_kiro_accepted(self):
+        """Test command accepts --provider kiro without error."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "test", "--provider", "kiro"],
+            capture_output=True,
+            text=True,
+        )
+        # Should not fail argument parsing (returncode 2 means argparse error)
+        assert result.returncode != 2, f"argparse rejected --provider: {result.stderr}"
+
+    def test_test_provider_invalid_rejected(self):
+        """Test command rejects invalid --provider value."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "test", "--provider", "invalid"],
+            capture_output=True,
+            text=True,
+        )
+        # argparse should reject invalid choice
+        assert result.returncode == 2
+        assert "invalid" in result.stderr.lower()
 
 
 class TestGraphCommand:

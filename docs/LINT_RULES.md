@@ -1,6 +1,6 @@
 # Lint Rules Reference
 
-wetwire-github includes a linter with 16 rules (WAG001-WAG016) that enforce type-safe patterns and catch common mistakes in GitHub workflow declarations.
+wetwire-github includes a linter with 20 rules (WAG001-WAG016, WAG050-WAG053) that enforce type-safe patterns and catch common mistakes in GitHub workflow declarations.
 
 ## Quick Reference
 
@@ -22,6 +22,10 @@ wetwire-github includes a linter with 16 rules (WAG001-WAG016) that enforce type
 | [WAG014](#wag014-extract-inline-matrix-config) | Extract inline matrix config | Yes |
 | [WAG015](#wag015-extract-inline-outputs) | Extract inline outputs | Yes |
 | [WAG016](#wag016-suggest-reusable-workflow-extraction) | Suggest reusable workflow extraction | No |
+| [WAG050](#wag050-unused-job-outputs) | Flag unused job outputs | No |
+| [WAG051](#wag051-circular-job-dependencies) | Detect circular job dependencies | No |
+| [WAG052](#wag052-orphan-secrets) | Flag orphan secrets | No |
+| [WAG053](#wag053-step-output-references) | Validate step output references | No |
 
 ---
 
@@ -793,6 +797,242 @@ linter = Linter(rules=[
 
 result = linter.check(source_code, "workflows.py")
 ```
+
+## Reference Tracking Rules (WAG050-053)
+
+### WAG050: Unused Job Outputs
+
+Flag job outputs that are never referenced by any downstream job.
+
+```python
+# Bad - 'unused_output' is never consumed
+from wetwire_github.workflow import Workflow, Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    outputs={
+        "version": "${{ steps.get_version.outputs.version }}",
+        "unused_output": "${{ steps.other.outputs.value }}",  # Never used!
+    },
+    steps=[Step(run="echo test")],
+)
+
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    needs=["build"],
+    steps=[
+        Step(run="echo ${{ needs.build.outputs.version }}"),  # Only uses 'version'
+    ],
+)
+
+workflow = Workflow(
+    name="CI",
+    on={"push": {}},
+    jobs={"build": build_job, "deploy": deploy_job},
+)
+```
+
+```python
+# Good - All outputs are consumed
+from wetwire_github.workflow import Workflow, Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    outputs={
+        "version": "${{ steps.get_version.outputs.version }}",
+    },
+    steps=[Step(run="echo test")],
+)
+
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    needs=["build"],
+    steps=[
+        Step(run="echo ${{ needs.build.outputs.version }}"),
+    ],
+)
+
+workflow = Workflow(
+    name="CI",
+    on={"push": {}},
+    jobs={"build": build_job, "deploy": deploy_job},
+)
+```
+
+**Why:** Unused outputs add noise to workflow definitions and may indicate incomplete job wiring or leftover code from refactoring.
+
+**Auto-fix:** No
+
+---
+
+### WAG051: Circular Job Dependencies
+
+Detect and warn about circular dependencies in job `needs` declarations.
+
+```python
+# Bad - Circular dependency: job_a -> job_b -> job_a
+from wetwire_github.workflow import Workflow, Job, Step
+
+job_a = Job(
+    runs_on="ubuntu-latest",
+    needs=["job_b"],  # Depends on job_b
+    steps=[Step(run="echo A")],
+)
+
+job_b = Job(
+    runs_on="ubuntu-latest",
+    needs=["job_a"],  # Depends on job_a - CIRCULAR!
+    steps=[Step(run="echo B")],
+)
+
+workflow = Workflow(
+    name="CI",
+    on={"push": {}},
+    jobs={"job_a": job_a, "job_b": job_b},
+)
+```
+
+```python
+# Good - Linear dependency chain
+from wetwire_github.workflow import Workflow, Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    steps=[Step(run="make build")],
+)
+
+test_job = Job(
+    runs_on="ubuntu-latest",
+    needs=["build"],
+    steps=[Step(run="make test")],
+)
+
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    needs=["test"],
+    steps=[Step(run="make deploy")],
+)
+
+workflow = Workflow(
+    name="CI",
+    on={"push": {}},
+    jobs={"build": build_job, "test": test_job, "deploy": deploy_job},
+)
+```
+
+**Why:** Circular dependencies prevent workflow execution. GitHub Actions will reject workflows with cycles in job dependencies.
+
+**Auto-fix:** No
+
+---
+
+### WAG052: Orphan Secrets
+
+Flag secrets that are referenced at workflow or job level but never actually used in any step.
+
+```python
+# Bad - UNUSED_SECRET is defined but never used
+from wetwire_github.workflow import Workflow, Job, Step
+from wetwire_github.workflow.expressions import Secrets
+
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    env={
+        "DEPLOY_TOKEN": Secrets.get("DEPLOY_TOKEN"),
+        "UNUSED_SECRET": Secrets.get("UNUSED_SECRET"),  # Never used in steps!
+    },
+    steps=[
+        Step(run="echo $DEPLOY_TOKEN"),  # Only uses DEPLOY_TOKEN
+    ],
+)
+
+workflow = Workflow(
+    name="Deploy",
+    on={"push": {}},
+    jobs={"deploy": deploy_job},
+)
+```
+
+```python
+# Good - All secrets are used
+from wetwire_github.workflow import Workflow, Job, Step
+from wetwire_github.workflow.expressions import Secrets
+
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    steps=[
+        Step(
+            run="deploy.sh",
+            env={"TOKEN": Secrets.get("DEPLOY_TOKEN")},
+        ),
+    ],
+)
+
+workflow = Workflow(
+    name="Deploy",
+    on={"push": {}},
+    jobs={"deploy": deploy_job},
+)
+```
+
+**Why:** Orphan secrets indicate incomplete workflow logic or leftover code. They also unnecessarily expose secrets that aren't needed.
+
+**Auto-fix:** No
+
+---
+
+### WAG053: Step Output References
+
+Validate that `steps.id.outputs.name` references point to valid step IDs that are defined before the reference.
+
+```python
+# Bad - References non-existent step ID
+from wetwire_github.workflow import Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    outputs={
+        "version": "${{ steps.nonexistent_step.outputs.version }}",  # Invalid!
+    },
+    steps=[
+        Step(id="get_version", run="echo version=1.0.0"),
+    ],
+)
+```
+
+```python
+# Bad - Forward reference to step defined later
+from wetwire_github.workflow import Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    steps=[
+        Step(id="first", run="echo ${{ steps.second.outputs.value }}"),  # Invalid!
+        Step(id="second", run="echo 'second'"),
+    ],
+)
+```
+
+```python
+# Good - Valid reference to previously defined step
+from wetwire_github.workflow import Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    outputs={
+        "version": "${{ steps.get_version.outputs.version }}",
+    },
+    steps=[
+        Step(id="get_version", run="echo version=1.0.0"),
+    ],
+)
+```
+
+**Why:** Invalid step references cause runtime errors in GitHub Actions. Forward references are also invalid because a step's outputs aren't available until after it completes.
+
+**Auto-fix:** No
+
+---
 
 ## See Also
 

@@ -19,6 +19,7 @@ def run_persona_tests(
     threshold: int = 70,
     all_personas: bool = False,
     scenario: str | None = None,
+    provider: str = "anthropic",
 ) -> tuple[int, str]:
     """Run persona-based tests for workflow code generation.
 
@@ -28,10 +29,13 @@ def run_persona_tests(
         threshold: Score threshold for pass/fail (default: 70)
         all_personas: Run all personas against the workflow
         scenario: Path to scenario configuration file
+        provider: AI provider to use ('anthropic' or 'kiro')
 
     Returns:
         Tuple of (exit_code, output_string)
     """
+    if provider == "kiro":
+        return _run_kiro_tests(workflow, threshold, scenario)
     return _run_tests(persona, workflow, threshold, all_personas, scenario)
 
 
@@ -173,4 +177,51 @@ def _format_all_results(result: dict[str, Any]) -> tuple[int, str]:
                 lines.append(feedback)
 
     exit_code = 0 if all_passed else 1
+    return exit_code, "\n".join(lines)
+
+
+def _run_kiro_tests(
+    workflow: str | None,
+    threshold: int,
+    scenario: str | None,
+) -> tuple[int, str]:
+    """Run tests using Kiro CLI provider.
+
+    Uses the kiro module for scenario-based testing with Kiro CLI.
+    """
+    try:
+        from wetwire_github.kiro import run_kiro_scenario
+    except ImportError:
+        return 1, "Kiro integration requires mcp package.\nInstall with: pip install wetwire-github[kiro]"
+
+    if not workflow:
+        return 1, "Error: --workflow is required for kiro provider"
+
+    prompt = f"Test workflow: {workflow}"
+    if scenario:
+        prompt = f"Test scenario from {scenario}"
+
+    result = run_kiro_scenario(
+        prompt=prompt,
+        timeout=300,
+    )
+
+    # Format results
+    lines = [
+        "--- Kiro Test Results ---",
+        f"Success: {result.get('success', False)}",
+        f"Exit code: {result.get('exit_code', 1)}",
+    ]
+
+    if result.get("stdout"):
+        lines.append("")
+        lines.append("--- Output ---")
+        lines.append(result["stdout"][:2000])
+
+    if result.get("stderr"):
+        lines.append("")
+        lines.append("--- Errors ---")
+        lines.append(result["stderr"][:1000])
+
+    exit_code = 0 if result.get("success", False) else 1
     return exit_code, "\n".join(lines)

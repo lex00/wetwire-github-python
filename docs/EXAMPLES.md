@@ -1158,6 +1158,7 @@ wetwire-github validate .github/workflows/
 ## See Also
 
 - [Quick Start](QUICK_START.md) - Getting started guide
+- [Composite Actions](COMPOSITE_ACTIONS.md) - Best practices for composite actions
 - [CLI Reference](CLI.md) - Full CLI documentation
 - [Developers Guide](DEVELOPERS.md) - Contributing guidelines
 - [FAQ](FAQ.md) - Frequently asked questions
