@@ -4,6 +4,7 @@ from wetwire_github.workflow.expressions import (
     Expression,
     GitHub,
     lower,
+    trim,
     upper,
 )
 
@@ -66,6 +67,39 @@ class TestUpper:
         result2 = upper(GitHub.actor)
         assert type(result1) is Expression
         assert type(result2) is Expression
+
+
+class TestTrim:
+    """Tests for the trim() function."""
+
+    def test_trim_with_string_input(self):
+        """trim() with a plain string wraps it in quotes."""
+        result = trim("  hello  ")
+        assert isinstance(result, Expression)
+        assert str(result) == "${{ trim('  hello  ') }}"
+
+    def test_trim_with_expression_input(self):
+        """trim() with an Expression extracts the inner expression."""
+        result = trim(GitHub.ref)
+        assert isinstance(result, Expression)
+        assert str(result) == "${{ trim(github.ref) }}"
+
+    def test_trim_returns_expression(self):
+        """trim() always returns an Expression instance."""
+        result1 = trim("test")
+        result2 = trim(GitHub.actor)
+        assert type(result1) is Expression
+        assert type(result2) is Expression
+
+    def test_trim_produces_valid_github_actions_syntax(self):
+        """trim() output follows GitHub Actions expression syntax."""
+        result = trim("  TEST  ")
+        output = str(result)
+        # GitHub Actions expressions are wrapped in ${{ }}
+        assert output.startswith("${{")
+        assert output.endswith("}}")
+        # The function call should be 'trim'
+        assert "trim(" in output
 
 
 class TestStringFunctionsGitHubActionsSyntax:

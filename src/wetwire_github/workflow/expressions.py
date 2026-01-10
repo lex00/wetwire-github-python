@@ -167,6 +167,26 @@ class EventContext:
         """Get a property from the discussion event payload."""
         return Expression(f"github.event.discussion.{prop}")
 
+    @staticmethod
+    def push(prop: str) -> Expression:
+        """Get a property from the push event payload."""
+        return Expression(f"github.event.{prop}")
+
+    @staticmethod
+    def workflow_run(prop: str) -> Expression:
+        """Get a property from the workflow_run event payload."""
+        return Expression(f"github.event.workflow_run.{prop}")
+
+    @staticmethod
+    def sender(prop: str) -> Expression:
+        """Get a property from the event sender."""
+        return Expression(f"github.event.sender.{prop}")
+
+    @staticmethod
+    def repository(prop: str) -> Expression:
+        """Get a property from the event repository."""
+        return Expression(f"github.event.repository.{prop}")
+
     # Convenience properties for common event payload fields
     pr_title = Expression("github.event.pull_request.title")
     pr_body = Expression("github.event.pull_request.body")
@@ -176,6 +196,13 @@ class EventContext:
     issue_number = Expression("github.event.issue.number")
     release_tag_name = Expression("github.event.release.tag_name")
     release_body = Expression("github.event.release.body")
+
+    # Additional convenience properties
+    head_commit_message = Expression("github.event.head_commit.message")
+    head_commit_id = Expression("github.event.head_commit.id")
+    sender_login = Expression("github.event.sender.login")
+    repo_full_name = Expression("github.event.repository.full_name")
+    repo_name = Expression("github.event.repository.name")
 
 
 # Module-level context instances
@@ -407,3 +434,22 @@ def upper(text: str | Expression) -> Expression:  # noqa: N802
     """
     text_str = str(text).strip("${{ }}").strip() if isinstance(text, Expression) else f"'{text}'"
     return Expression(f"upper({text_str})")
+
+
+def trim(text: str | Expression) -> Expression:  # noqa: A001
+    """Remove leading and trailing whitespace from a string.
+
+    Args:
+        text: The text to trim (string or expression)
+
+    Returns:
+        Expression containing trimmed string
+
+    Example:
+        >>> trim("  hello  ")
+        ${{ trim('  hello  ') }}
+        >>> trim(GitHub.ref)
+        ${{ trim(github.ref) }}
+    """
+    text_str = str(text).strip("${{ }}").strip() if isinstance(text, Expression) else f"'{text}'"
+    return Expression(f"trim({text_str})")

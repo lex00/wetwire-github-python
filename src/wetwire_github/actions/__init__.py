@@ -8,6 +8,7 @@ from .configure_aws_credentials import configure_aws_credentials
 from .configure_pages import configure_pages
 from .create_github_app_token import create_github_app_token
 from .create_pull_request import create_pull_request
+from .dependency_review import dependency_review
 from .deploy_pages import deploy_pages
 from .docker_build_push import docker_build_push
 from .docker_login import docker_login
@@ -39,6 +40,7 @@ __all__ = [
     "configure_pages",
     "create_github_app_token",
     "create_pull_request",
+    "dependency_review",
     "deploy_pages",
     "docker_build_push",
     "docker_login",
