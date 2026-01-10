@@ -257,6 +257,28 @@ def create_parser() -> argparse.ArgumentParser:
         description="Run the Model Context Protocol server for AI tools like Kiro CLI.",
     )
 
+    # kiro command
+    kiro_parser = subparsers.add_parser(
+        "kiro",
+        help="Launch Kiro CLI with wetwire-github-runner agent",
+        description="Launch Kiro CLI for AI-assisted workflow design with the wetwire-github-runner agent.",
+    )
+    kiro_parser.add_argument(
+        "--prompt",
+        "-p",
+        help="Initial prompt for the conversation",
+    )
+    kiro_parser.add_argument(
+        "--install-only",
+        action="store_true",
+        help="Only install configs without launching Kiro",
+    )
+    kiro_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force reinstall of configurations",
+    )
+
     return parser
 
 
@@ -440,6 +462,21 @@ def cmd_mcp_server(args: argparse.Namespace) -> int:
         return 0
 
 
+def cmd_kiro(args: argparse.Namespace) -> int:
+    """Execute kiro command."""
+    from wetwire_github.kiro import install_kiro_configs, launch_kiro
+
+    if args.install_only:
+        results = install_kiro_configs(force=args.force, verbose=True)
+        if results["agent"] or results["mcp"]:
+            print("Kiro configurations installed successfully.")
+        else:
+            print("Configurations already exist. Use --force to overwrite.")
+        return 0
+
+    return launch_kiro(prompt=args.prompt)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main entry point for the CLI."""
     parser = create_parser()
@@ -461,6 +498,7 @@ def main(argv: list[str] | None = None) -> int:
         "test": cmd_test,
         "graph": cmd_graph,
         "mcp-server": cmd_mcp_server,
+        "kiro": cmd_kiro,
     }
 
     if args.command in commands:

@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Kiro CLI integration module (`wetwire_github.kiro`)
+  - `install_kiro_configs()` - Installs agent and MCP configs for Kiro CLI
+  - `launch_kiro()` - Launches Kiro CLI with wetwire-github-runner agent
+  - `run_kiro_scenario()` - Non-interactive scenario execution for testing
+  - `check_kiro_installed()` - Checks if Kiro CLI is available
+- `kiro` CLI command for AI-assisted workflow design
+  - `--prompt` - Initial prompt for conversation
+  - `--install-only` - Only install configs without launching
+  - `--force` - Force reinstall of configurations
+- GitHub Actions-specific agent configuration with:
+  - Lint-fix loop enforcement
+  - wetwire-github syntax documentation
+  - Lint rules reference (WAG001-WAG008)
+  - Design workflow guidance
+
 ## [0.1.0] - 2026-01-06
 
 ### Added
