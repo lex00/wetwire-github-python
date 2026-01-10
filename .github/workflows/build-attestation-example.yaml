@@ -1,0 +1,61 @@
+name: Build Attestation Example
+'on':
+  push:
+    branches:
+    - main
+jobs:
+  simple-attest:
+    name: Build and Attest
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build artifact
+      run: make build
+    - uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: dist/*.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        path: dist/
+        name: build-artifacts
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+  container-attest:
+    name: Build and Attest Container
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build container
+      run: docker build -t myapp:latest .
+    - id: digest
+      name: Get image digest
+      run: echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' myapp:latest)"
+        >> $GITHUB_OUTPUT
+    - uses: actions/attest-build-provenance@v2
+      with:
+        subject-digest: ${{ steps.digest.outputs.digest }}
+        subject-name: ghcr.io/${{ github.repository }}:latest
+        push-to-registry: 'true'
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      packages: write
+  multi-attest:
+    name: Build Multiple Artifacts
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build artifacts
+      run: "\n                make build-all\n                sha256sum dist/* > checksums.txt\n\
+        \            "
+    - uses: actions/attest-build-provenance@v2
+      with:
+        subject-checksums: checksums.txt
+        show-summary: 'true'
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
