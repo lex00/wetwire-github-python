@@ -74,13 +74,13 @@ wetwire_github/
 ├── dependabot/         # Dependabot configuration types
 ├── issue_templates/    # Issue form types
 ├── discussion_templates/  # Discussion template types
-├── linter/             # 8 lint rules (WAG001-WAG008)
+├── linter/             # 16 lint rules (WAG001-WAG016)
 ├── importer/           # YAML to Python conversion
 ├── discover/           # AST-based discovery
 └── serialize/          # Python to YAML conversion
 ```
 
-## Lint Rules (WAG001-WAG008)
+## Lint Rules (WAG001-WAG016)
 
 - **WAG001**: Use typed action wrappers instead of raw strings
 - **WAG002**: Use condition builders instead of raw expressions
@@ -90,6 +90,14 @@ wetwire_github/
 - **WAG006**: Detect duplicate workflow names
 - **WAG007**: Flag oversized files (>N jobs)
 - **WAG008**: Avoid hardcoded expressions
+- **WAG009**: Validate webhook event types
+- **WAG010**: Document secrets usage
+- **WAG011**: Flag complex conditions
+- **WAG012**: Suggest reusable workflows
+- **WAG013**: Extract inline env variables (auto-fix)
+- **WAG014**: Extract inline matrix config (auto-fix)
+- **WAG015**: Extract inline outputs (auto-fix)
+- **WAG016**: Suggest reusable workflow extraction
 
 ## Key Principles
 

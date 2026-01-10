@@ -1,6 +1,6 @@
 # Lint Rules Reference
 
-wetwire-github includes a linter with 12 rules (WAG001-WAG012) that enforce type-safe patterns and catch common mistakes in GitHub workflow declarations.
+wetwire-github includes a linter with 16 rules (WAG001-WAG016) that enforce type-safe patterns and catch common mistakes in GitHub workflow declarations.
 
 ## Quick Reference
 
@@ -18,6 +18,10 @@ wetwire-github includes a linter with 12 rules (WAG001-WAG012) that enforce type
 | [WAG010](#wag010-document-secrets) | Document secrets usage | No |
 | [WAG011](#wag011-complex-conditions) | Flag complex conditions | No |
 | [WAG012](#wag012-suggest-reusable-workflows) | Suggest reusable workflows | No |
+| [WAG013](#wag013-extract-inline-env-variables) | Extract inline env variables | Yes |
+| [WAG014](#wag014-extract-inline-matrix-config) | Extract inline matrix config | Yes |
+| [WAG015](#wag015-extract-inline-outputs) | Extract inline outputs | Yes |
+| [WAG016](#wag016-suggest-reusable-workflow-extraction) | Suggest reusable workflow extraction | No |
 
 ---
 
@@ -505,13 +509,265 @@ test_job = Job(
 
 ---
 
+## Extraction Rules (WAG013-015)
+
+### WAG013: Extract Inline Env Variables
+
+Extract large inline environment variable dictionaries to named variables for better readability.
+
+```python
+# Bad - Too many inline env variables
+from wetwire_github.workflow import Step
+
+step = Step(
+    run="make build",
+    env={
+        "CI": "true",
+        "NODE_ENV": "production",
+        "DEBUG": "false",
+        "VERBOSE": "1",
+        "LOG_LEVEL": "info",
+    },
+)
+```
+
+```python
+# Good - Extract to named variable
+from wetwire_github.workflow import Step
+
+step_env = {
+    "CI": "true",
+    "NODE_ENV": "production",
+    "DEBUG": "false",
+    "VERBOSE": "1",
+    "LOG_LEVEL": "info",
+}
+
+step = Step(
+    run="make build",
+    env=step_env,
+)
+```
+
+**Why:** Large inline dictionaries make steps harder to read and maintain. Extracting environment variables to named variables improves readability, enables reuse, and makes it easier to modify configurations.
+
+**Threshold:** Default is 3 inline env variables (configurable)
+
+**Auto-fix:** Yes - Automatically extracts inline env dicts to a variable named `{step_var}_env`
+
+---
+
+### WAG014: Extract Inline Matrix Config
+
+Extract complex inline matrix configurations to named variables.
+
+```python
+# Bad - Complex inline matrix
+from wetwire_github.workflow import Job, Step
+from wetwire_github.workflow.strategy import Strategy, Matrix
+
+test_job = Job(
+    runs_on="ubuntu-latest",
+    strategy=Strategy(
+        matrix=Matrix(
+            values={
+                "python": ["3.9", "3.10", "3.11", "3.12"],
+                "os": ["ubuntu-latest", "macos-latest", "windows-latest"],
+                "node": ["16", "18", "20"],
+            }
+        )
+    ),
+    steps=[Step(run="pytest")],
+)
+```
+
+```python
+# Good - Extract matrix to named variable
+from wetwire_github.workflow import Job, Step
+from wetwire_github.workflow.strategy import Strategy, Matrix
+
+test_job_matrix = Matrix(
+    values={
+        "python": ["3.9", "3.10", "3.11", "3.12"],
+        "os": ["ubuntu-latest", "macos-latest", "windows-latest"],
+        "node": ["16", "18", "20"],
+    }
+)
+
+test_job = Job(
+    runs_on="ubuntu-latest",
+    strategy=Strategy(matrix=test_job_matrix),
+    steps=[Step(run="pytest")],
+)
+```
+
+**Why:** Complex matrix configurations with many keys or values become difficult to read when inlined. Extracting them to named variables improves code organization and makes the matrix strategy easier to understand and modify.
+
+**Threshold:** Default is >2 keys or >3 values per key (configurable)
+
+**Auto-fix:** Yes - Automatically extracts complex matrix configs to a variable named `{job_var}_matrix`
+
+---
+
+### WAG015: Extract Inline Outputs
+
+Extract large inline outputs dictionaries in Job definitions to named variables.
+
+```python
+# Bad - Too many inline outputs
+from wetwire_github.workflow import Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    outputs={
+        "version": "${{ steps.get_version.outputs.version }}",
+        "tag": "${{ steps.get_tag.outputs.tag }}",
+        "sha": "${{ steps.get_sha.outputs.sha }}",
+        "artifact_url": "${{ steps.upload.outputs.artifact_url }}",
+    },
+    steps=[Step(run="echo test")],
+)
+```
+
+```python
+# Good - Extract to named variable
+from wetwire_github.workflow import Job, Step
+
+build_job_outputs = {
+    "version": "${{ steps.get_version.outputs.version }}",
+    "tag": "${{ steps.get_tag.outputs.tag }}",
+    "sha": "${{ steps.get_sha.outputs.sha }}",
+    "artifact_url": "${{ steps.upload.outputs.artifact_url }}",
+}
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    outputs=build_job_outputs,
+    steps=[Step(run="echo test")],
+)
+```
+
+**Why:** Large inline outputs dictionaries clutter job definitions and make them harder to scan. Extracting outputs to named variables improves readability and makes the job definition more concise.
+
+**Threshold:** Default is 2 inline outputs (configurable)
+
+**Auto-fix:** Yes - Automatically extracts inline outputs to a variable named `{job_var}_outputs`
+
+---
+
+### WAG016: Suggest Reusable Workflow Extraction
+
+Detect duplicated inline job patterns across workflows that could be extracted into reusable workflows.
+
+```python
+# Bad - Duplicated inline jobs across workflows
+from wetwire_github.workflow import Workflow, Job, Step
+from wetwire_github.actions import checkout, setup_python
+
+ci_workflow = Workflow(
+    name="CI",
+    on={"push": {"branches": ["main"]}},
+    jobs={
+        "build": Job(
+            runs_on="ubuntu-latest",
+            steps=[
+                checkout(),
+                setup_python(python_version="3.11"),
+                Step(run="make build"),
+            ],
+        ),
+    },
+)
+
+pr_workflow = Workflow(
+    name="PR",
+    on={"pull_request": {}},
+    jobs={
+        "build": Job(
+            runs_on="ubuntu-latest",
+            steps=[
+                checkout(),
+                setup_python(python_version="3.11"),
+                Step(run="make build"),
+            ],
+        ),
+    },
+)
+```
+
+```python
+# Good - Extract common job and reference it
+from wetwire_github.workflow import Workflow, Job, Step
+from wetwire_github.actions import checkout, setup_python
+
+# Define the job once
+build_job = Job(
+    runs_on="ubuntu-latest",
+    steps=[
+        checkout(),
+        setup_python(python_version="3.11"),
+        Step(run="make build"),
+    ],
+)
+
+ci_workflow = Workflow(
+    name="CI",
+    on={"push": {"branches": ["main"]}},
+    jobs={"build": build_job},
+)
+
+pr_workflow = Workflow(
+    name="PR",
+    on={"pull_request": {}},
+    jobs={"build": build_job},
+)
+```
+
+**Alternative - Use a reusable workflow:**
+
+```python
+# build.py - Reusable workflow
+from wetwire_github.workflow import Workflow, Job, Step
+from wetwire_github.actions import checkout, setup_python
+
+build_workflow = Workflow(
+    name="Build",
+    on={"workflow_call": {}},
+    jobs={
+        "build": Job(
+            runs_on="ubuntu-latest",
+            steps=[
+                checkout(),
+                setup_python(python_version="3.11"),
+                Step(run="make build"),
+            ],
+        ),
+    },
+)
+
+# ci.py - Call the reusable workflow
+ci_workflow = Workflow(
+    name="CI",
+    on={"push": {"branches": ["main"]}},
+    jobs={
+        "build": Job(uses="./.github/workflows/build.yml"),
+    },
+)
+```
+
+**Why:** Duplicated inline job definitions across multiple workflows create maintenance burden and risk of inconsistencies. Extracting to shared job variables or reusable workflows reduces duplication, ensures consistency, and makes updates easier.
+
+**Auto-fix:** No
+
+---
+
 ## Running the Linter
 
 ```bash
 # Lint a file or directory
 wetwire-github lint myapp/
 
-# Lint with auto-fix (applies fixes for WAG003)
+# Lint with auto-fix (applies fixes for WAG003, WAG013, WAG014, WAG015)
 wetwire-github lint myapp/ --fix
 
 # Lint specific files
