@@ -431,7 +431,9 @@ class WAG052OrphanSecrets(BaseRule):
         if isinstance(node, ast.Call):
             if self._is_secrets_get_call(node):
                 if node.args and isinstance(node.args[0], ast.Constant):
-                    secrets.add(node.args[0].value)
+                    value = node.args[0].value
+                    if isinstance(value, str):
+                        secrets.add(value)
 
         # Check for string expressions with ${{ secrets.NAME }}
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -550,7 +552,9 @@ class WAG053StepOutputReferences(BaseRule):
         """Extract the id from a Step call."""
         for keyword in step_node.keywords:
             if keyword.arg == "id" and isinstance(keyword.value, ast.Constant):
-                return keyword.value.value
+                value = keyword.value.value
+                if isinstance(value, str):
+                    return value
         return None
 
     def _check_step_for_invalid_refs(
