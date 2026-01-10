@@ -1,5 +1,6 @@
 """Workflow types for GitHub Actions."""
 
+from .composition import ComposedWorkflow
 from .expressions import (
     Env,
     Expression,
@@ -23,6 +24,7 @@ from .job import Job
 from .matrix import Matrix, Strategy
 from .runner import SelfHostedRunner
 from .step import Step
+from .step_output import StepOutput
 from .triggers import (
     BranchProtectionRuleTrigger,
     CheckRunTrigger,
@@ -88,6 +90,7 @@ __all__ = [
     "Matrix",
     "Strategy",
     "SelfHostedRunner",
+    "ComposedWorkflow",
     # Supporting types
     "Concurrency",
     "Defaults",
@@ -99,6 +102,7 @@ __all__ = [
     "WorkflowInput",
     "WorkflowOutput",
     "WorkflowSecret",
+    "StepOutput",
     # Triggers
     "Triggers",
     "PushTrigger",

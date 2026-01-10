@@ -22,6 +22,7 @@ KNOWN_ACTIONS = {
     "actions/cache",
     "actions/upload-artifact",
     "actions/download-artifact",
+    "actions/upload-pages-artifact",
 }
 
 
@@ -99,6 +100,7 @@ class WAG001TypedActionWrappers(BaseRule):
             "actions/cache": "cache",
             "actions/upload-artifact": "upload_artifact",
             "actions/download-artifact": "download_artifact",
+            "actions/upload-pages-artifact": "upload_pages_artifact",
         }
 
         # Pattern to find Step(uses="actions/...@v...")

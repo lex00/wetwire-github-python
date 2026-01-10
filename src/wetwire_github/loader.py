@@ -128,6 +128,7 @@ def setup_actions(namespace: dict[str, Any]) -> None:
         setup_node,
         setup_python,
         upload_artifact,
+        upload_pages_artifact,
     )
 
     namespace.update(
@@ -140,6 +141,7 @@ def setup_actions(namespace: dict[str, Any]) -> None:
             "cache": cache,
             "upload_artifact": upload_artifact,
             "download_artifact": download_artifact,
+            "upload_pages_artifact": upload_pages_artifact,
         }
     )
 

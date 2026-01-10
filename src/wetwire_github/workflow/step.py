@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Any
 
+from .step_output import StepOutput
+
 
 @dataclass
 class Step:
@@ -19,3 +21,4 @@ class Step:
     working_directory: str = ""
     continue_on_error: bool | None = None
     timeout_minutes: int | None = None
+    outputs: dict[str, StepOutput] | None = None

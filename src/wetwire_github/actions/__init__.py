@@ -22,6 +22,7 @@ from .setup_node import setup_node
 from .setup_python import setup_python
 from .setup_ruby import setup_ruby
 from .upload_artifact import upload_artifact
+from .upload_pages_artifact import upload_pages_artifact
 
 __all__ = [
     "attest_build_provenance",
@@ -46,4 +47,5 @@ __all__ = [
     "setup_python",
     "setup_ruby",
     "upload_artifact",
+    "upload_pages_artifact",
 ]

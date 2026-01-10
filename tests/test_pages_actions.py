@@ -1,6 +1,6 @@
 """Tests for GitHub Pages action wrappers (issue #116)."""
 
-from wetwire_github.actions import configure_pages, deploy_pages
+from wetwire_github.actions import configure_pages, deploy_pages, upload_pages_artifact
 from wetwire_github.workflow import Step
 
 
@@ -162,3 +162,75 @@ class TestConfigurePages:
         assert step.with_["generator_config_file"] == "next.config.js"
         assert step.with_["token"] == "${{ secrets.PAT }}"
         assert step.with_["enablement"] == "true"
+
+
+class TestUploadPagesArtifact:
+    """Tests for actions/upload-pages-artifact wrapper (issue #164)."""
+
+    def test_basic_upload(self) -> None:
+        """Test basic pages artifact upload with required path."""
+        step = upload_pages_artifact(path="./public")
+
+        assert isinstance(step, Step)
+        assert step.uses == "actions/upload-pages-artifact@v4"
+        assert step.with_["path"] == "./public"
+
+    def test_with_retention_days(self) -> None:
+        """Test artifact upload with custom retention period."""
+        step = upload_pages_artifact(
+            path="./dist",
+            retention_days=7,
+        )
+
+        assert step.with_["path"] == "./dist"
+        assert step.with_["retention-days"] == 7
+
+    def test_with_if_no_files_found_warn(self) -> None:
+        """Test artifact upload with warn behavior for missing files."""
+        step = upload_pages_artifact(
+            path="./build",
+            if_no_files_found="warn",
+        )
+
+        assert step.with_["path"] == "./build"
+        assert step.with_["if-no-files-found"] == "warn"
+
+    def test_with_if_no_files_found_error(self) -> None:
+        """Test artifact upload with error behavior for missing files."""
+        step = upload_pages_artifact(
+            path="./output",
+            if_no_files_found="error",
+        )
+
+        assert step.with_["path"] == "./output"
+        assert step.with_["if-no-files-found"] == "error"
+
+    def test_with_if_no_files_found_ignore(self) -> None:
+        """Test artifact upload with ignore behavior for missing files."""
+        step = upload_pages_artifact(
+            path="./site",
+            if_no_files_found="ignore",
+        )
+
+        assert step.with_["path"] == "./site"
+        assert step.with_["if-no-files-found"] == "ignore"
+
+    def test_all_parameters(self) -> None:
+        """Test artifact upload with all parameters."""
+        step = upload_pages_artifact(
+            path="./docs/_build/html",
+            retention_days=30,
+            if_no_files_found="error",
+        )
+
+        assert step.with_["path"] == "./docs/_build/html"
+        assert step.with_["retention-days"] == 30
+        assert step.with_["if-no-files-found"] == "error"
+
+    def test_path_with_expression(self) -> None:
+        """Test artifact upload with GitHub expression in path."""
+        step = upload_pages_artifact(
+            path="${{ github.workspace }}/build",
+        )
+
+        assert step.with_["path"] == "${{ github.workspace }}/build"
