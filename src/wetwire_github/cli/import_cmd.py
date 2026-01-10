@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from wetwire_github.cli.path_validation import PathValidationError, validate_path
 from wetwire_github.importer import IRJob, IRStep, IRWorkflow, parse_workflow_file
 
 
@@ -30,13 +31,27 @@ def import_workflows(
     if not file_paths:
         return 1, ["No files to import"]
 
-    output = Path(output_dir)
+    # Validate output directory path
+    try:
+        output = validate_path(output_dir, must_exist=False)
+    except PathValidationError as e:
+        return 1, [f"Error: Invalid output path: {e}"]
+
+    # Validate all input file paths
+    validated_paths: list[Path] = []
+    for file_path in file_paths:
+        try:
+            validated = validate_path(file_path, must_exist=False)
+            validated_paths.append(validated)
+        except PathValidationError as e:
+            return 1, [f"Error: Invalid input path '{file_path}': {e}"]
+
     output.mkdir(parents=True, exist_ok=True)
 
     # Parse all workflows
     workflows: list[tuple[str, IRWorkflow]] = []
-    for file_path in file_paths:
-        workflow = parse_workflow_file(file_path)
+    for file_path in validated_paths:
+        workflow = parse_workflow_file(str(file_path))
         if workflow is None:
             return 1, [f"Error: File not found: {file_path}"]
         # Use filename stem as workflow name if not set

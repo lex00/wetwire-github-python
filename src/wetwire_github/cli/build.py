@@ -4,8 +4,8 @@ Discovers workflows in Python packages and generates YAML/JSON output.
 """
 
 import json
-from pathlib import Path
 
+from wetwire_github.cli.path_validation import PathValidationError, validate_path
 from wetwire_github.discover import DiscoveryCache, discover_in_directory
 from wetwire_github.runner import extract_workflows
 from wetwire_github.serialize import to_dict, to_yaml
@@ -29,10 +29,18 @@ def build_workflows(
     Returns:
         Tuple of (exit_code, list of generated file paths)
     """
-    package = Path(package_path)
-    output = Path(output_dir)
+    # Validate input paths for security
+    try:
+        package = validate_path(package_path, must_exist=True)
+    except PathValidationError as e:
+        return 1, [f"Error: Invalid package path: {e}"]
 
-    # Check if package exists
+    try:
+        output = validate_path(output_dir, must_exist=False)
+    except PathValidationError as e:
+        return 1, [f"Error: Invalid output path: {e}"]
+
+    # Check if package exists (redundant but kept for clarity)
     if not package.exists():
         return 1, [f"Error: Package path does not exist: {package_path}"]
 
