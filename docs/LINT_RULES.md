@@ -1,6 +1,6 @@
 # Lint Rules Reference
 
-wetwire-github includes a linter with 20 rules (WAG001-WAG016, WAG050-WAG053) that enforce type-safe patterns and catch common mistakes in GitHub workflow declarations.
+wetwire-github includes a linter with 28 rules (WAG001-WAG022, WAG050-WAG053) that enforce type-safe patterns, catch common mistakes, and detect security issues in GitHub workflow declarations.
 
 ## Quick Reference
 
@@ -22,6 +22,12 @@ wetwire-github includes a linter with 20 rules (WAG001-WAG016, WAG050-WAG053) th
 | [WAG014](#wag014-extract-inline-matrix-config) | Extract inline matrix config | Yes |
 | [WAG015](#wag015-extract-inline-outputs) | Extract inline outputs | Yes |
 | [WAG016](#wag016-suggest-reusable-workflow-extraction) | Suggest reusable workflow extraction | No |
+| [WAG017](#wag017-hardcoded-secrets-in-run) | Detect hardcoded secrets in run commands | No |
+| [WAG018](#wag018-unpinned-actions) | Detect unpinned actions | Yes |
+| [WAG019](#wag019-unused-permissions) | Detect unused permissions | No |
+| [WAG020](#wag020-overly-permissive-secrets) | Warn about secrets in run commands | No |
+| [WAG021](#wag021-missing-oidc-configuration) | Suggest OIDC for cloud auth | No |
+| [WAG022](#wag022-implicit-environment-exposure) | Detect unescaped user input | No |
 | [WAG050](#wag050-unused-job-outputs) | Flag unused job outputs | No |
 | [WAG051](#wag051-circular-job-dependencies) | Detect circular job dependencies | No |
 | [WAG052](#wag052-orphan-secrets) | Flag orphan secrets | No |
@@ -765,13 +771,254 @@ ci_workflow = Workflow(
 
 ---
 
+## Security Rules (WAG017-022)
+
+### WAG017: Hardcoded Secrets in Run
+
+Detect hardcoded secrets, API keys, passwords, tokens, and other sensitive data in `run` commands.
+
+```python
+# Bad - Hardcoded API key in run command
+from wetwire_github.workflow import Step
+
+step = Step(
+    name="Deploy",
+    run="curl -H 'Authorization: Bearer sk_live_abc123xyz789' https://api.example.com/deploy",
+)
+```
+
+```python
+# Good - Use secrets via environment variable
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import Secrets
+
+step = Step(
+    name="Deploy",
+    run="curl -H \"Authorization: Bearer $API_KEY\" https://api.example.com/deploy",
+    env={"API_KEY": Secrets.get("API_KEY")},
+)
+```
+
+**Why:** Hardcoded secrets in code can be exposed through version control, logs, or error messages. Always use GitHub Secrets and pass them via environment variables.
+
+**Detected patterns:**
+- API keys (16+ character strings)
+- AWS credentials (AKIA prefix, secret access keys)
+- Stripe keys (sk_live, sk_test, pk_live, pk_test)
+- GitHub tokens (ghp_, ghs_, gho_, ghu_ prefixes)
+- Password assignments in commands
+- Private key markers (BEGIN PRIVATE KEY)
+
+**Auto-fix:** No (requires moving secrets to GitHub Secrets)
+
+---
+
+### WAG018: Unpinned Actions
+
+Detect actions that are not pinned to a specific version, SHA, or that are pinned to a branch.
+
+```python
+# Bad - Unpinned action
+from wetwire_github.workflow import Step
+
+step = Step(uses="actions/checkout")  # No version!
+```
+
+```python
+# Bad - Pinned to branch
+from wetwire_github.workflow import Step
+
+step = Step(uses="actions/checkout@main")  # Branch can change!
+```
+
+```python
+# Good - Pinned to version
+from wetwire_github.actions import checkout
+
+step = checkout(fetch_depth=0)  # Uses actions/checkout@v4
+```
+
+```python
+# Better - Pinned to SHA
+from wetwire_github.workflow import Step
+
+step = Step(uses="actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11")  # Full SHA
+```
+
+**Why:** Unpinned or branch-pinned actions can change without warning, potentially introducing security vulnerabilities or breaking changes. Pinning to versions or SHAs ensures reproducible builds.
+
+**Auto-fix:** Yes - Adds default version tags for known actions (e.g., @v4 for actions/checkout)
+
+---
+
+### WAG019: Unused Permissions
+
+Detect permissions that are declared but not needed by any action in the job.
+
+```python
+# Bad - Unnecessary write permission
+from wetwire_github.workflow import Job, Step
+
+job = Job(
+    runs_on="ubuntu-latest",
+    permissions={
+        "contents": "write",  # Not needed for checkout
+        "packages": "write",  # Not used at all
+    },
+    steps=[Step(uses="actions/checkout@v4")],
+)
+```
+
+```python
+# Good - Minimal required permissions
+from wetwire_github.workflow import Job, Step
+
+job = Job(
+    runs_on="ubuntu-latest",
+    permissions={
+        "contents": "read",
+    },
+    steps=[Step(uses="actions/checkout@v4")],
+)
+```
+
+**Why:** Following the principle of least privilege reduces the blast radius of potential security incidents. Only grant permissions that are actually required.
+
+**Auto-fix:** No
+
+---
+
+### WAG020: Overly Permissive Secrets
+
+Warn about secrets interpolated directly into shell commands where they may be exposed in logs.
+
+```python
+# Bad - Secret directly in command
+from wetwire_github.workflow import Step
+
+step = Step(
+    name="Deploy",
+    run="deploy.sh --token=${{ secrets.DEPLOY_TOKEN }}",
+)
+```
+
+```python
+# Good - Secret passed via environment variable
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import Secrets
+
+step = Step(
+    name="Deploy",
+    run="deploy.sh --token=$TOKEN",
+    env={"TOKEN": Secrets.get("DEPLOY_TOKEN")},
+)
+```
+
+**Why:** Secrets directly interpolated in run commands may be logged if the command fails or if debug logging is enabled. Environment variables are masked by GitHub Actions.
+
+**Auto-fix:** No
+
+---
+
+### WAG021: Missing OIDC Configuration
+
+Suggest using OpenID Connect (OIDC) instead of long-lived credentials for cloud provider authentication.
+
+```python
+# Bad - Using static AWS credentials
+from wetwire_github.workflow import Step
+
+step = Step(
+    uses="aws-actions/configure-aws-credentials@v4",
+    with_={
+        "aws-access-key-id": "${{ secrets.AWS_ACCESS_KEY_ID }}",
+        "aws-secret-access-key": "${{ secrets.AWS_SECRET_ACCESS_KEY }}",
+        "aws-region": "us-east-1",
+    },
+)
+```
+
+```python
+# Good - Using OIDC with role assumption
+from wetwire_github.workflow import Step
+
+step = Step(
+    uses="aws-actions/configure-aws-credentials@v4",
+    with_={
+        "role-to-assume": "arn:aws:iam::123456789012:role/GitHubActions",
+        "aws-region": "us-east-1",
+    },
+)
+```
+
+**Why:** OIDC provides short-lived, automatically rotated credentials that are more secure than long-lived secrets. Supported by AWS, GCP, and Azure.
+
+**Supported cloud providers:**
+- AWS: Use `role-to-assume` instead of `aws-access-key-id`/`aws-secret-access-key`
+- GCP: Use `workload_identity_provider` instead of `credentials_json`
+- Azure: Use federated credentials instead of `creds` with service principal secret
+
+**Auto-fix:** No
+
+---
+
+### WAG022: Implicit Environment Exposure
+
+Detect user-controlled input (issue titles, PR bodies, etc.) used in shell commands without proper escaping.
+
+```python
+# Bad - User input directly in command
+from wetwire_github.workflow import Step
+
+step = Step(
+    name="Comment",
+    run="echo ${{ github.event.issue.title }}",  # Command injection risk!
+)
+```
+
+```python
+# Bad - Unquoted environment variable
+from wetwire_github.workflow import Step
+
+step = Step(
+    name="Comment",
+    run="echo $TITLE",  # Should be quoted
+    env={"TITLE": "${{ github.event.issue.title }}"},
+)
+```
+
+```python
+# Good - Properly quoted environment variable
+from wetwire_github.workflow import Step
+
+step = Step(
+    name="Comment",
+    run='echo "$TITLE"',  # Properly quoted
+    env={"TITLE": "${{ github.event.issue.title }}"},
+)
+```
+
+**Why:** User-controlled input like issue titles, PR bodies, and commit messages can contain shell metacharacters that could execute arbitrary commands. Always use environment variables and quote them properly.
+
+**User-controlled contexts:**
+- `github.event.issue.title`, `github.event.issue.body`
+- `github.event.pull_request.title`, `github.event.pull_request.body`
+- `github.event.comment.body`, `github.event.review.body`
+- `github.event.head_commit.message`
+- `github.head_ref`
+- `github.event.discussion.title`, `github.event.discussion.body`
+
+**Auto-fix:** No
+
+---
+
 ## Running the Linter
 
 ```bash
 # Lint a file or directory
 wetwire-github lint myapp/
 
-# Lint with auto-fix (applies fixes for WAG003, WAG013, WAG014, WAG015)
+# Lint with auto-fix (applies fixes for WAG003, WAG013-WAG015, WAG018)
 wetwire-github lint myapp/ --fix
 
 # Lint specific files
