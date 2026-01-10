@@ -74,6 +74,13 @@ All notable changes to this project will be documented in this file.
   - Constants for common GitHub context values (GITHUB_REF, GITHUB_SHA, etc.)
   - Follows AWS pseudo-parameter pattern for consistency
   - IDE autocomplete and type safety for GitHub contexts
+- Expanded action wrapper registry with 6 new wrappers:
+  - `setup_buildx` - Set up Docker Buildx (docker/setup-buildx-action@v3)
+  - `docker_metadata` - Extract Docker metadata (docker/metadata-action@v5)
+  - `configure_aws_credentials` - AWS credentials setup (aws-actions/configure-aws-credentials@v4)
+  - `codecov` - Upload coverage to Codecov (codecov/codecov-action@v4)
+  - `create_pull_request` - Create PRs (peter-evans/create-pull-request@v6)
+  - `gh_release` - Create GitHub releases (softprops/action-gh-release@v2)
 
 ## [0.1.0] - 2026-01-06
 
