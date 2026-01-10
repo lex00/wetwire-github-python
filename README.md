@@ -11,9 +11,14 @@ pip install wetwire-github
 ## Quick Start
 
 ```python
-# Flat imports from the root package
-from wetwire_github import Workflow, Job, Step, Triggers, PushTrigger
-from wetwire_github.actions import checkout, setup_python
+# __init__.py - Set up the namespace
+from wetwire_github.loader import setup_all
+setup_all(__file__, __name__, globals())
+```
+
+```python
+# workflows.py - Define workflows using injected types
+from . import *
 
 # Flat declarations - define steps, jobs, then workflow
 build_steps = [
@@ -38,6 +43,10 @@ ci = Workflow(
 )
 ```
 
+```bash
+wetwire-github build mypackage
+```
+
 ## Features
 
 ### Flat, Declarative Patterns
@@ -45,8 +54,8 @@ ci = Workflow(
 wetwire encourages flat declarations - define small pieces and compose:
 
 ```python
-from wetwire_github import Workflow, Job, Step, Triggers, PushTrigger, PullRequestTrigger
-from wetwire_github.actions import checkout, setup_python, cache
+# workflows.py
+from . import *
 
 # Define steps separately
 checkout_step = checkout(fetch_depth=0)
@@ -110,9 +119,8 @@ wetwire-github test
 #### Dependabot
 
 ```python
-from wetwire_github.dependabot import (
-    Dependabot, Update, Schedule, PackageEcosystem
-)
+# dependabot.py
+from . import *
 
 config = Dependabot(
     version=2,
@@ -129,11 +137,10 @@ config = Dependabot(
 #### Issue Templates (Issue Forms)
 
 ```python
-from wetwire_github.issue_templates import (
-    IssueTemplate, Input, Textarea, Dropdown, Checkboxes, Markdown
-)
+# issue_templates.py
+from . import *
 
-template = IssueTemplate(
+bug_report = IssueTemplate(
     name="Bug Report",
     description="Report a bug",
     labels=["bug"],
@@ -150,33 +157,13 @@ template = IssueTemplate(
 )
 ```
 
-#### Discussion Templates
-
-```python
-from wetwire_github.discussion_templates import (
-    DiscussionTemplate, DiscussionCategory
-)
-from wetwire_github.issue_templates import Input, Textarea
-
-template = DiscussionTemplate(
-    title="Feature Request",
-    labels=["enhancement"],
-    body=[
-        Input(label="Feature name", id="name"),
-        Textarea(label="Description", id="description"),
-    ],
-)
-```
-
 ### Typed Action Wrappers
 
-Pre-generated typed wrappers for common GitHub Actions:
+Pre-generated typed wrappers for common GitHub Actions are injected into the namespace:
 
 ```python
-from wetwire_github.actions import (
-    checkout, setup_python, setup_node, cache,
-    upload_artifact, download_artifact,
-)
+# workflows.py
+from . import *
 
 steps = [
     checkout(fetch_depth=0),
@@ -185,26 +172,24 @@ steps = [
 ]
 ```
 
-### wetwire-core Integration
+Available wrappers: `checkout`, `setup_python`, `setup_node`, `setup_go`, `setup_java`, `setup_dotnet`, `setup_ruby`, `cache`, `upload_artifact`, `download_artifact`, `github_script`, `docker_login`, `docker_build_push`, and more.
 
-Integration with wetwire-core for AI-assisted workflow design:
+### GitHub Context Pseudo-Parameters
+
+Type-safe constants for GitHub context values:
 
 ```python
-from wetwire_github.core_integration import (
-    get_tool_definitions,
-    handle_tool_call,
-    score_workflow,
-    run_persona_test,
+# workflows.py
+from . import *
+
+deploy_step = Step(
+    run="./deploy.sh",
+    env={
+        "REF": GITHUB_REF,
+        "SHA": GITHUB_SHA,
+        "ACTOR": GITHUB_ACTOR,
+    },
 )
-
-# Get tool definitions for RunnerAgent
-tools = get_tool_definitions()
-
-# Score a workflow for best practices
-score = score_workflow("path/to/workflow.yaml")
-
-# Run persona-based testing
-result = run_persona_test("reviewer", "path/to/workflow.yaml")
 ```
 
 ## Development
