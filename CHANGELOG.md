@@ -39,7 +39,7 @@ All notable changes to this project will be documented in this file.
 - GitHub Actions-specific agent configuration with:
   - Lint-fix loop enforcement
   - wetwire-github syntax documentation
-  - Lint rules reference (WAG001-WAG008)
+  - Lint rules reference (WAG001-WAG053)
   - Design workflow guidance
 - Standalone MCP server executable (`wetwire-github-mcp`)
   - Entry point added to pyproject.toml
@@ -61,6 +61,20 @@ All notable changes to this project will be documented in this file.
   - WAG014: Extract complex inline matrix configurations
   - WAG015: Extract inline outputs dicts (>2 entries) to named variables
   - WAG016: Suggest reusable workflow extraction for duplicated inline jobs
+- Security lint rules (WAG017-WAG022):
+  - WAG017: Detect hardcoded secrets in run commands
+  - WAG018: Detect unpinned actions (with auto-fix)
+  - WAG019: Flag unused permissions grants
+  - WAG020: Warn about secrets interpolated directly in run commands
+  - WAG021: Suggest OIDC for cloud provider authentication
+  - WAG022: Detect unescaped user-controlled input in shell commands
+- Reference tracking rules (WAG050-WAG053):
+  - WAG050: Flag unused job outputs
+  - WAG051: Detect circular job dependencies
+  - WAG052: Flag orphan secrets
+  - WAG053: Validate step output references
+- Input validation rule (WAG049):
+  - WAG049: Validate workflow_call inputs and secrets references
 - Additional typed action wrappers (`wetwire_github.actions`)
   - `github_script` - Run JavaScript using GitHub API (actions/github-script@v7)
   - `docker_login` - Log in to Docker registries (docker/login-action@v3)
