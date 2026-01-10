@@ -8,6 +8,30 @@ Generate GitHub YAML configurations from typed Python declarations.
 pip install wetwire-github
 ```
 
+## Quick Start
+
+```python
+# Single-line imports from the root package
+from wetwire_github import Workflow, Job, Step, Triggers, PushTrigger, PullRequestTrigger
+
+ci = Workflow(
+    name="CI",
+    on=Triggers(
+        push=PushTrigger(branches=["main"]),
+        pull_request=PullRequestTrigger(branches=["main"]),
+    ),
+    jobs={
+        "build": Job(
+            runs_on="ubuntu-latest",
+            steps=[
+                Step(uses="actions/checkout@v4"),
+                Step(run="make build"),
+            ],
+        ),
+    },
+)
+```
+
 ## Features
 
 ### Core Types
@@ -15,6 +39,7 @@ pip install wetwire-github
 Type-safe Python dataclasses for GitHub Actions workflows:
 
 ```python
+# Or import from submodules for more control
 from wetwire_github.workflow import (
     Workflow, Job, Step, Triggers,
     PushTrigger, PullRequestTrigger,

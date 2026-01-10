@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Single-line imports from root package
+  - Core types: `from wetwire_github import Workflow, Job, Step, Triggers`
+  - Trigger types: `PushTrigger, PullRequestTrigger, ScheduleTrigger`
+  - Expression builders: `Secrets, GitHub, always, failure, success, cancelled`
+- Modular linter rules architecture (`wetwire_github.linter.rules/`)
+  - Organized by category: action, expression, organization, validation, pattern
+  - Backwards compatible with existing imports
+  - Easier to navigate, test, and extend
 - Kiro CLI integration module (`wetwire_github.kiro`)
   - `install_kiro_configs()` - Installs agent and MCP configs for Kiro CLI
   - `launch_kiro()` - Launches Kiro CLI with wetwire-github-runner agent
