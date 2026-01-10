@@ -45,6 +45,10 @@ from .reference_rules import (
 from .security_rules import (
     WAG017HardcodedSecretsInRun,
     WAG018UnpinnedActions,
+    WAG019UnusedPermissions,
+    WAG020OverlyPermissiveSecrets,
+    WAG021MissingOIDCConfiguration,
+    WAG022ImplicitEnvironmentExposure,
 )
 from .validation_rules import (
     VALID_EVENT_TYPES,
@@ -84,6 +88,10 @@ __all__ = [
     # Security rules
     "WAG017HardcodedSecretsInRun",
     "WAG018UnpinnedActions",
+    "WAG019UnusedPermissions",
+    "WAG020OverlyPermissiveSecrets",
+    "WAG021MissingOIDCConfiguration",
+    "WAG022ImplicitEnvironmentExposure",
     # Reference rules
     "WAG050UnusedJobOutputs",
     "WAG051CircularJobDependencies",
@@ -115,6 +123,10 @@ def get_default_rules() -> list[BaseRule]:
         WAG016SuggestReusableWorkflowExtraction(),
         WAG017HardcodedSecretsInRun(),
         WAG018UnpinnedActions(),
+        WAG019UnusedPermissions(),
+        WAG020OverlyPermissiveSecrets(),
+        WAG021MissingOIDCConfiguration(),
+        WAG022ImplicitEnvironmentExposure(),
         WAG050UnusedJobOutputs(),
         WAG051CircularJobDependencies(),
         WAG052OrphanSecrets(),

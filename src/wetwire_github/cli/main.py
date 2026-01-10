@@ -514,6 +514,29 @@ def create_parser() -> argparse.ArgumentParser:
         help="Python package to analyze",
     )
 
+    # scaffold command
+    scaffold_parser = subparsers.add_parser(
+        "scaffold",
+        help="Generate workflow from template",
+        description="Scaffold a new workflow file from a pre-built template.",
+    )
+    scaffold_parser.add_argument(
+        "--template",
+        "-t",
+        help="Template to use (python-ci, nodejs-ci, release, docker)",
+    )
+    scaffold_parser.add_argument(
+        "--output",
+        "-o",
+        help="Output file path for generated workflow",
+        default="workflows.py",
+    )
+    scaffold_parser.add_argument(
+        "--list-templates",
+        action="store_true",
+        help="List available templates",
+    )
+
     return parser
 
 
@@ -867,6 +890,36 @@ def cmd_report(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def cmd_scaffold(args: argparse.Namespace) -> int:
+    """Execute scaffold command."""
+    from wetwire_github.cli.scaffold_cmd import list_templates, scaffold_to_file
+
+    # List templates if requested
+    if args.list_templates:
+        exit_code, output = list_templates()
+        if output:
+            print(output)
+        return exit_code
+
+    # Require template if not listing
+    if not args.template:
+        print("Error: --template is required (or use --list-templates)", file=sys.stderr)
+        return 1
+
+    exit_code, messages = scaffold_to_file(
+        template=args.template,
+        output=args.output,
+    )
+
+    for msg in messages:
+        if exit_code == 0:
+            print(msg)
+        else:
+            print(msg, file=sys.stderr)
+
+    return exit_code
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main entry point for the CLI."""
     parser = create_parser()
@@ -894,6 +947,7 @@ def main(argv: list[str] | None = None) -> int:
         "mcp-server": cmd_mcp_server,
         "kiro": cmd_kiro,
         "report": cmd_report,
+        "scaffold": cmd_scaffold,
     }
 
     if args.command in commands:
