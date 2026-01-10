@@ -1,10 +1,13 @@
 """Generated GitHub Action wrappers."""
 
+from .attest_build_provenance import attest_build_provenance
 from .cache import cache
 from .checkout import checkout
 from .codecov import codecov
 from .configure_aws_credentials import configure_aws_credentials
+from .configure_pages import configure_pages
 from .create_pull_request import create_pull_request
+from .deploy_pages import deploy_pages
 from .docker_build_push import docker_build_push
 from .docker_login import docker_login
 from .docker_metadata import docker_metadata
@@ -21,11 +24,14 @@ from .setup_ruby import setup_ruby
 from .upload_artifact import upload_artifact
 
 __all__ = [
+    "attest_build_provenance",
     "cache",
     "checkout",
     "codecov",
     "configure_aws_credentials",
+    "configure_pages",
     "create_pull_request",
+    "deploy_pages",
     "docker_build_push",
     "docker_login",
     "docker_metadata",
