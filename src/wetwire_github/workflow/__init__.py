@@ -3,6 +3,7 @@
 from .composition import ComposedWorkflow
 from .expressions import (
     Env,
+    Event,
     Expression,
     GitHub,
     Inputs,
@@ -157,6 +158,7 @@ __all__ = [
     "Needs",
     "Inputs",
     "Steps",
+    "Event",
     "always",
     "failure",
     "success",

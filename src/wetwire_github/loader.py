@@ -122,6 +122,7 @@ def setup_actions(namespace: dict[str, Any]) -> None:
     from wetwire_github.actions import (
         cache,
         checkout,
+        create_github_app_token,
         download_artifact,
         labeler,
         setup_go,
@@ -140,6 +141,7 @@ def setup_actions(namespace: dict[str, Any]) -> None:
             "setup_go": setup_go,
             "setup_java": setup_java,
             "cache": cache,
+            "create_github_app_token": create_github_app_token,
             "labeler": labeler,
             "upload_artifact": upload_artifact,
             "download_artifact": download_artifact,

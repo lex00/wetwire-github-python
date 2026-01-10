@@ -54,6 +54,7 @@ from .validation_rules import (
     VALID_EVENT_TYPES,
     WAG009ValidateEventTypes,
     WAG010MissingSecretVariables,
+    WAG049ValidateWorkflowInputs,
 )
 
 __all__ = [
@@ -77,6 +78,7 @@ __all__ = [
     # Validation rules
     "WAG009ValidateEventTypes",
     "WAG010MissingSecretVariables",
+    "WAG049ValidateWorkflowInputs",
     # Pattern rules
     "WAG011ComplexConditions",
     "WAG012SuggestReusableWorkflows",
@@ -127,6 +129,7 @@ def get_default_rules() -> list[BaseRule]:
         WAG020OverlyPermissiveSecrets(),
         WAG021MissingOIDCConfiguration(),
         WAG022ImplicitEnvironmentExposure(),
+        WAG049ValidateWorkflowInputs(),
         WAG050UnusedJobOutputs(),
         WAG051CircularJobDependencies(),
         WAG052OrphanSecrets(),

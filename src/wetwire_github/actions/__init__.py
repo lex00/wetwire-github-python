@@ -6,6 +6,7 @@ from .checkout import checkout
 from .codecov import codecov
 from .configure_aws_credentials import configure_aws_credentials
 from .configure_pages import configure_pages
+from .create_github_app_token import create_github_app_token
 from .create_pull_request import create_pull_request
 from .deploy_pages import deploy_pages
 from .docker_build_push import docker_build_push
@@ -32,6 +33,7 @@ __all__ = [
     "codecov",
     "configure_aws_credentials",
     "configure_pages",
+    "create_github_app_token",
     "create_pull_request",
     "deploy_pages",
     "docker_build_push",
