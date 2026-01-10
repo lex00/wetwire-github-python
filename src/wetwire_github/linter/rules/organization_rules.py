@@ -4,6 +4,7 @@ Rules that check for proper code organization and structure.
 """
 
 import ast
+import re
 
 from wetwire_github.linter.linter import LintError
 
@@ -90,6 +91,54 @@ class WAG004UseMatrixBuilder(BaseRule):
         if isinstance(node.func, ast.Attribute):
             return node.func.attr == "Strategy"
         return False
+
+    def fix(self, source: str, file_path: str) -> tuple[str, int, list[LintError]]:
+        """Fix raw strategy/matrix dicts by wrapping with Strategy/Matrix classes.
+
+        Returns:
+            Tuple of (fixed_source, fixed_count, remaining_errors)
+        """
+        fixed_count = 0
+        fixed_source = source
+
+        # Pattern 1: strategy={...} -> strategy=Strategy(matrix=Matrix(values={...}))
+        # Match strategy= followed by a dict literal
+        pattern1 = re.compile(
+            r'strategy\s*=\s*(\{[^}]*"matrix"\s*:\s*\{[^}]+\}[^}]*\})',
+            re.MULTILINE | re.DOTALL,
+        )
+
+        def wrap_full_strategy(match: re.Match[str]) -> str:
+            nonlocal fixed_count
+            fixed_count += 1
+            dict_str = match.group(1)
+            # Extract the inner matrix dict
+            matrix_match = re.search(r'"matrix"\s*:\s*(\{[^}]+\})', dict_str)
+            if matrix_match:
+                matrix_dict = matrix_match.group(1)
+                return f"strategy=Strategy(matrix=Matrix(values={matrix_dict}))"
+            return match.group(0)
+
+        fixed_source = pattern1.sub(wrap_full_strategy, fixed_source)
+
+        # Pattern 2: Strategy(matrix={...}) -> Strategy(matrix=Matrix(values={...}))
+        pattern2 = re.compile(
+            r'Strategy\s*\(\s*matrix\s*=\s*(\{[^}]+\})\s*\)',
+            re.MULTILINE | re.DOTALL,
+        )
+
+        def wrap_matrix_in_strategy(match: re.Match[str]) -> str:
+            nonlocal fixed_count
+            fixed_count += 1
+            matrix_dict = match.group(1)
+            return f"Strategy(matrix=Matrix(values={matrix_dict}))"
+
+        fixed_source = pattern2.sub(wrap_matrix_in_strategy, fixed_source)
+
+        # Check if there are remaining issues
+        remaining_errors = self.check(fixed_source, file_path)
+
+        return fixed_source, fixed_count, remaining_errors
 
 
 class WAG005ExtractInlineEnvVariables(BaseRule):

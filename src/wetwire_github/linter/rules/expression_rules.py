@@ -193,6 +193,23 @@ class WAG008HardcodedExpressions(BaseRule):
             "Detect hardcoded GitHub expression strings; use Expression objects instead"
         )
 
+    # Mapping of common GitHub context expressions to their replacements
+    _GITHUB_CONTEXT_MAP = {
+        r"\$\{\{\s*github\.ref\s*\}\}": "GitHub.ref",
+        r"\$\{\{\s*github\.ref_name\s*\}\}": "GitHub.ref_name",
+        r"\$\{\{\s*github\.sha\s*\}\}": "GitHub.sha",
+        r"\$\{\{\s*github\.event_name\s*\}\}": "GitHub.event_name",
+        r"\$\{\{\s*github\.actor\s*\}\}": "GitHub.actor",
+        r"\$\{\{\s*github\.repository\s*\}\}": "GitHub.repository",
+        r"\$\{\{\s*github\.repository_owner\s*\}\}": "GitHub.repository_owner",
+        r"\$\{\{\s*github\.run_id\s*\}\}": "GitHub.run_id",
+        r"\$\{\{\s*github\.run_number\s*\}\}": "GitHub.run_number",
+        r"\$\{\{\s*github\.workflow\s*\}\}": "GitHub.workflow",
+        r"\$\{\{\s*github\.job\s*\}\}": "GitHub.job",
+        r"\$\{\{\s*github\.head_ref\s*\}\}": "GitHub.head_ref",
+        r"\$\{\{\s*github\.base_ref\s*\}\}": "GitHub.base_ref",
+    }
+
     def check(self, source: str, file_path: str) -> list[LintError]:
         errors = []
         try:
@@ -215,3 +232,31 @@ class WAG008HardcodedExpressions(BaseRule):
                     )
 
         return errors
+
+    def fix(self, source: str, file_path: str) -> tuple[str, int, list[LintError]]:
+        """Fix common hardcoded GitHub expressions by replacing with expression builders.
+
+        This handles common github.* context expressions. More complex expressions
+        may require manual intervention.
+
+        Returns:
+            Tuple of (fixed_source, fixed_count, remaining_errors)
+        """
+        fixed_count = 0
+        fixed_source = source
+
+        # Replace common GitHub context expressions
+        for pattern, replacement in self._GITHUB_CONTEXT_MAP.items():
+            regex = re.compile(pattern)
+
+            def make_replacement(match: re.Match[str]) -> str:
+                nonlocal fixed_count
+                fixed_count += 1
+                return replacement
+
+            fixed_source = regex.sub(make_replacement, fixed_source)
+
+        # Check if there are remaining issues
+        remaining_errors = self.check(fixed_source, file_path)
+
+        return fixed_source, fixed_count, remaining_errors
