@@ -88,14 +88,14 @@ class TestModularRulesAggregation:
         """All rules can be imported from rules/__init__.py."""
         from wetwire_github.linter.rules import get_default_rules
 
-        # Verify get_default_rules returns all 26 rules
+        # Verify get_default_rules returns all 27 rules
         rules = get_default_rules()
-        assert len(rules) == 26
+        assert len(rules) == 27
 
         rule_ids = {rule.id for rule in rules}
-        # WAG001-WAG022 + WAG050-WAG053
+        # WAG001-WAG022 + WAG049 + WAG050-WAG053
         expected_ids = {f"WAG{str(i).zfill(3)}" for i in range(1, 23)} | {
-            "WAG050", "WAG051", "WAG052", "WAG053"
+            "WAG049", "WAG050", "WAG051", "WAG052", "WAG053"
         }
         assert rule_ids == expected_ids
 
@@ -156,7 +156,7 @@ class TestBackwardsCompatibility:
 
         assert WAG001TypedActionWrappers().id == "WAG001"
         assert WAG006DuplicateWorkflowNames().id == "WAG006"
-        assert len(get_default_rules()) == 26
+        assert len(get_default_rules()) == 27
 
 
 class TestRuleFunctionality:
@@ -208,3 +208,263 @@ ci_deploy = Workflow(name="CI")
         errors = rule.check(source, "test.py")
         assert len(errors) == 1
         assert errors[0].rule_id == "WAG006"
+
+
+class TestWAG049ValidateWorkflowInputs:
+    """Tests for WAG049: Validate workflow inputs."""
+
+    def test_import_wag049_from_validation_rules(self):
+        """Can import WAG049 from validation_rules module."""
+        from wetwire_github.linter.rules.validation_rules import (
+            WAG049ValidateWorkflowInputs,
+        )
+
+        rule = WAG049ValidateWorkflowInputs()
+        assert rule.id == "WAG049"
+        assert "input" in rule.description.lower()
+
+    def test_input_missing_description_triggers_warning(self):
+        """Input without description triggers warning."""
+        from wetwire_github.linter.rules.validation_rules import (
+            WAG049ValidateWorkflowInputs,
+        )
+
+        rule = WAG049ValidateWorkflowInputs()
+        source = '''
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+wf = Workflow(
+    name="Test",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger(
+            inputs={
+                "environment": WorkflowInput(
+                    type="string",
+                    required=True
+                )
+            }
+        )
+    )
+)
+'''
+        errors = rule.check(source, "test.py")
+        assert len(errors) == 1
+        assert errors[0].rule_id == "WAG049"
+        assert "description" in errors[0].message.lower()
+        assert "environment" in errors[0].message
+
+    def test_input_with_description_passes(self):
+        """Input with description passes validation."""
+        from wetwire_github.linter.rules.validation_rules import (
+            WAG049ValidateWorkflowInputs,
+        )
+
+        rule = WAG049ValidateWorkflowInputs()
+        source = '''
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+wf = Workflow(
+    name="Test",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger(
+            inputs={
+                "environment": WorkflowInput(
+                    description="Target environment for deployment",
+                    type="string",
+                    required=True
+                )
+            }
+        )
+    )
+)
+'''
+        errors = rule.check(source, "test.py")
+        assert len(errors) == 0
+
+    def test_choice_input_with_less_than_2_options_triggers_warning(self):
+        """Choice type input with fewer than 2 options triggers warning."""
+        from wetwire_github.linter.rules.validation_rules import (
+            WAG049ValidateWorkflowInputs,
+        )
+
+        rule = WAG049ValidateWorkflowInputs()
+        source = '''
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+wf = Workflow(
+    name="Test",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger(
+            inputs={
+                "environment": WorkflowInput(
+                    description="Target environment",
+                    type="choice",
+                    options=["production"]
+                )
+            }
+        )
+    )
+)
+'''
+        errors = rule.check(source, "test.py")
+        assert len(errors) == 1
+        assert errors[0].rule_id == "WAG049"
+        assert "choice" in errors[0].message.lower()
+        assert "2" in errors[0].message or "two" in errors[0].message.lower()
+
+    def test_choice_input_with_2_or_more_options_passes(self):
+        """Choice type input with 2+ options passes validation."""
+        from wetwire_github.linter.rules.validation_rules import (
+            WAG049ValidateWorkflowInputs,
+        )
+
+        rule = WAG049ValidateWorkflowInputs()
+        source = '''
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+wf = Workflow(
+    name="Test",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger(
+            inputs={
+                "environment": WorkflowInput(
+                    description="Target environment",
+                    type="choice",
+                    options=["staging", "production"]
+                )
+            }
+        )
+    )
+)
+'''
+        errors = rule.check(source, "test.py")
+        assert len(errors) == 0
+
+    def test_multiple_inputs_with_mixed_validity(self):
+        """Multiple inputs with some valid and some invalid."""
+        from wetwire_github.linter.rules.validation_rules import (
+            WAG049ValidateWorkflowInputs,
+        )
+
+        rule = WAG049ValidateWorkflowInputs()
+        source = '''
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+wf = Workflow(
+    name="Test",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger(
+            inputs={
+                "environment": WorkflowInput(
+                    description="Target environment",
+                    type="choice",
+                    options=["staging", "production"]
+                ),
+                "version": WorkflowInput(
+                    type="string"
+                ),
+                "dry_run": WorkflowInput(
+                    description="Run in dry-run mode",
+                    type="boolean"
+                )
+            }
+        )
+    )
+)
+'''
+        errors = rule.check(source, "test.py")
+        assert len(errors) == 1
+        assert errors[0].rule_id == "WAG049"
+        assert "version" in errors[0].message
+
+    def test_workflow_with_no_inputs_passes(self):
+        """Workflow without inputs passes validation."""
+        from wetwire_github.linter.rules.validation_rules import (
+            WAG049ValidateWorkflowInputs,
+        )
+
+        rule = WAG049ValidateWorkflowInputs()
+        source = '''
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger
+
+wf = Workflow(
+    name="Test",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger()
+    )
+)
+'''
+        errors = rule.check(source, "test.py")
+        assert len(errors) == 0
+
+    def test_workflow_call_trigger_with_inputs(self):
+        """WorkflowCallTrigger inputs are also validated."""
+        from wetwire_github.linter.rules.validation_rules import (
+            WAG049ValidateWorkflowInputs,
+        )
+
+        rule = WAG049ValidateWorkflowInputs()
+        source = '''
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowCallTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+wf = Workflow(
+    name="Reusable",
+    on=Triggers(
+        workflow_call=WorkflowCallTrigger(
+            inputs={
+                "target": WorkflowInput(
+                    type="string"
+                )
+            }
+        )
+    )
+)
+'''
+        errors = rule.check(source, "test.py")
+        assert len(errors) == 1
+        assert errors[0].rule_id == "WAG049"
+        assert "target" in errors[0].message
+
+    def test_choice_input_with_no_options_triggers_warning(self):
+        """Choice type input with no options triggers warning."""
+        from wetwire_github.linter.rules.validation_rules import (
+            WAG049ValidateWorkflowInputs,
+        )
+
+        rule = WAG049ValidateWorkflowInputs()
+        source = '''
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+wf = Workflow(
+    name="Test",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger(
+            inputs={
+                "environment": WorkflowInput(
+                    description="Target environment",
+                    type="choice"
+                )
+            }
+        )
+    )
+)
+'''
+        errors = rule.check(source, "test.py")
+        assert len(errors) == 1
+        assert errors[0].rule_id == "WAG049"
+        assert "choice" in errors[0].message.lower()

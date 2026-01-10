@@ -14,15 +14,16 @@ __all__ = ["WAG001TypedActionWrappers", "KNOWN_ACTIONS"]
 
 # Known action wrappers we provide
 KNOWN_ACTIONS = {
+    "actions/cache",
     "actions/checkout",
-    "actions/setup-python",
-    "actions/setup-node",
+    "actions/create-github-app-token",
+    "actions/download-artifact",
+    "actions/labeler",
     "actions/setup-go",
     "actions/setup-java",
-    "actions/cache",
-    "actions/labeler",
+    "actions/setup-node",
+    "actions/setup-python",
     "actions/upload-artifact",
-    "actions/download-artifact",
     "actions/upload-pages-artifact",
 }
 
@@ -93,15 +94,16 @@ class WAG001TypedActionWrappers(BaseRule):
 
         # Map of action names to wrapper function names
         action_wrappers = {
+            "actions/cache": "cache",
             "actions/checkout": "checkout",
-            "actions/setup-python": "setup_python",
-            "actions/setup-node": "setup_node",
+            "actions/create-github-app-token": "create_github_app_token",
+            "actions/download-artifact": "download_artifact",
+            "actions/labeler": "labeler",
             "actions/setup-go": "setup_go",
             "actions/setup-java": "setup_java",
-            "actions/cache": "cache",
-            "actions/labeler": "labeler",
+            "actions/setup-node": "setup_node",
+            "actions/setup-python": "setup_python",
             "actions/upload-artifact": "upload_artifact",
-            "actions/download-artifact": "download_artifact",
             "actions/upload-pages-artifact": "upload_pages_artifact",
         }
 

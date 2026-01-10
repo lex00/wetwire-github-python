@@ -144,6 +144,40 @@ class StepsContext:
         return Expression(f"steps.{step_id}.conclusion")
 
 
+class EventContext:
+    """Accessor for github.event context (event payload)."""
+
+    @staticmethod
+    def pull_request(prop: str) -> Expression:
+        """Get a property from the pull_request event payload."""
+        return Expression(f"github.event.pull_request.{prop}")
+
+    @staticmethod
+    def issue(prop: str) -> Expression:
+        """Get a property from the issue event payload."""
+        return Expression(f"github.event.issue.{prop}")
+
+    @staticmethod
+    def release(prop: str) -> Expression:
+        """Get a property from the release event payload."""
+        return Expression(f"github.event.release.{prop}")
+
+    @staticmethod
+    def discussion(prop: str) -> Expression:
+        """Get a property from the discussion event payload."""
+        return Expression(f"github.event.discussion.{prop}")
+
+    # Convenience properties for common event payload fields
+    pr_title = Expression("github.event.pull_request.title")
+    pr_body = Expression("github.event.pull_request.body")
+    pr_number = Expression("github.event.pull_request.number")
+    issue_title = Expression("github.event.issue.title")
+    issue_body = Expression("github.event.issue.body")
+    issue_number = Expression("github.event.issue.number")
+    release_tag_name = Expression("github.event.release.tag_name")
+    release_body = Expression("github.event.release.body")
+
+
 # Module-level context instances
 Secrets = SecretsContext()
 Matrix = MatrixContext()
@@ -153,6 +187,7 @@ Runner = RunnerContext()
 Needs = NeedsContext()
 Inputs = InputsContext()
 Steps = StepsContext()
+Event = EventContext()
 
 
 # Condition builder functions

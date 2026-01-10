@@ -13,6 +13,7 @@ from .base import BaseRule
 __all__ = [
     "WAG009ValidateEventTypes",
     "WAG010MissingSecretVariables",
+    "WAG049ValidateWorkflowInputs",
     "VALID_EVENT_TYPES",
 ]
 
@@ -155,3 +156,110 @@ class WAG010MissingSecretVariables(BaseRule):
             )
 
         return errors
+
+
+class WAG049ValidateWorkflowInputs(BaseRule):
+    """WAG049: Validate workflow inputs have descriptions.
+
+    Ensures that all workflow_dispatch and workflow_call inputs have:
+    - Non-empty descriptions
+    - At least 2 options for choice type inputs
+    """
+
+    @property
+    def id(self) -> str:
+        return "WAG049"
+
+    @property
+    def description(self) -> str:
+        return "Validate workflow inputs have descriptions and choice inputs have sufficient options"
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        errors = []
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return errors
+
+        for node in ast.walk(tree):
+            # Look for WorkflowDispatchTrigger and WorkflowCallTrigger calls
+            if isinstance(node, ast.Call) and self._is_trigger_call(node):
+                # Find the inputs keyword argument
+                for keyword in node.keywords:
+                    if keyword.arg == "inputs" and isinstance(keyword.value, ast.Dict):
+                        # Check each input in the dict
+                        for key, value in zip(keyword.value.keys, keyword.value.values):
+                            if isinstance(key, ast.Constant) and isinstance(
+                                key.value, str
+                            ):
+                                input_name = key.value
+                                # Check if value is a WorkflowInput call
+                                if isinstance(value, ast.Call) and self._is_workflow_input_call(value):
+                                    self._validate_input(
+                                        value, input_name, file_path, errors
+                                    )
+
+        return errors
+
+    def _is_trigger_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a WorkflowDispatchTrigger or WorkflowCallTrigger call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id in ("WorkflowDispatchTrigger", "WorkflowCallTrigger")
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr in ("WorkflowDispatchTrigger", "WorkflowCallTrigger")
+        return False
+
+    def _is_workflow_input_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a WorkflowInput call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id == "WorkflowInput"
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr == "WorkflowInput"
+        return False
+
+    def _validate_input(
+        self, node: ast.Call, input_name: str, file_path: str, errors: list[LintError]
+    ) -> None:
+        """Validate a WorkflowInput node."""
+        description = None
+        input_type = None
+        options = None
+
+        # Extract description, type, and options from keyword arguments
+        for keyword in node.keywords:
+            if keyword.arg == "description":
+                if isinstance(keyword.value, ast.Constant):
+                    description = keyword.value.value
+            elif keyword.arg == "type":
+                if isinstance(keyword.value, ast.Constant):
+                    input_type = keyword.value.value
+            elif keyword.arg == "options":
+                if isinstance(keyword.value, ast.List):
+                    options = keyword.value.elts
+
+        # Check if description is missing or empty
+        if not description or (isinstance(description, str) and not description.strip()):
+            errors.append(
+                LintError(
+                    rule_id=self.id,
+                    message=f"Input '{input_name}' is missing a description",
+                    file_path=file_path,
+                    line=node.lineno,
+                    column=node.col_offset,
+                    suggestion="Add a description parameter to WorkflowInput to document what this input is for",
+                )
+            )
+
+        # Check choice type has at least 2 options
+        if input_type == "choice":
+            if options is None or len(options) < 2:
+                errors.append(
+                    LintError(
+                        rule_id=self.id,
+                        message=f"Input '{input_name}' has type 'choice' but fewer than 2 options",
+                        file_path=file_path,
+                        line=node.lineno,
+                        column=node.col_offset,
+                        suggestion="Choice inputs should have at least 2 options. Consider using 'string' or 'boolean' type if only one option is needed.",
+                    )
+                )
