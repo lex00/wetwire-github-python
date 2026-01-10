@@ -144,6 +144,7 @@ class WorkflowGraph:
         self.nodes: dict[str, DependencyNode] = {}
         self.edges: list[tuple[str, str]] = []
         self._workflows: list[str] = []
+        self.workflow_calls: list[tuple[str, str]] = []  # (caller, callee) pairs
 
     def add_workflow(self, workflow: "Workflow", file_path: str = "", line: int = 0) -> None:
         """Add a workflow and its jobs to the graph.
@@ -178,6 +179,15 @@ class WorkflowGraph:
             # Add edges
             for dep in deps:
                 self.edges.append((dep, node_name))
+
+    def add_workflow_call(self, caller: str, callee: str) -> None:
+        """Track a workflow_call relationship.
+
+        Args:
+            caller: The workflow that calls another workflow
+            callee: The reusable workflow being called
+        """
+        self.workflow_calls.append((caller, callee))
 
     def detect_cycles(self) -> list[list[str]]:
         """Find circular dependencies in the graph.
@@ -243,6 +253,12 @@ class WorkflowGraph:
 
             if use_subgraphs:
                 lines.append("    end")
+
+        # Add workflow_call edges (dashed lines)
+        for caller, callee in self.workflow_calls:
+            safe_caller = self._sanitize_id(caller)
+            safe_callee = self._sanitize_id(callee)
+            lines.append(f"    {safe_caller}([{caller}]) -.-> {safe_callee}([{callee}])")
 
         return "\n".join(lines)
 

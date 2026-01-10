@@ -6,16 +6,20 @@ definitions without requiring explicit registration.
 
 from .discover import (
     DiscoveredResource,
+    DiscoveredReusableWorkflow,
     build_dependency_graph,
     discover_in_directory,
     discover_in_file,
+    discover_reusable_workflows,
     validate_references,
 )
 
 __all__ = [
     "DiscoveredResource",
+    "DiscoveredReusableWorkflow",
     "build_dependency_graph",
     "discover_in_directory",
     "discover_in_file",
+    "discover_reusable_workflows",
     "validate_references",
 ]

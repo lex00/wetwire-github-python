@@ -52,7 +52,7 @@ All notable changes to this project will be documented in this file.
   - Escape hatches and workarounds
   - Team onboarding playbook
   - Integration patterns
-- New lint rules (WAG009-WAG015):
+- New lint rules (WAG009-WAG016):
   - WAG009: Validate webhook event types in triggers
   - WAG010: Detect secrets used to help document requirements
   - WAG011: Flag overly complex conditional logic
@@ -60,6 +60,7 @@ All notable changes to this project will be documented in this file.
   - WAG013: Extract inline env dicts (>3 entries) to named variables
   - WAG014: Extract complex inline matrix configurations
   - WAG015: Extract inline outputs dicts (>2 entries) to named variables
+  - WAG016: Suggest reusable workflow extraction for duplicated inline jobs
 - Additional typed action wrappers (`wetwire_github.actions`)
   - `github_script` - Run JavaScript using GitHub API (actions/github-script@v7)
   - `docker_login` - Log in to Docker registries (docker/login-action@v3)
@@ -72,7 +73,13 @@ All notable changes to this project will be documented in this file.
   - `topological_sort()` - Kahn's algorithm for dependency ordering
   - `detect_cycles()` - Cycle detection in dependency graphs
   - `to_mermaid()` / `to_dot()` - Visualization output
+  - `add_workflow_call()` - Track workflow composition relationships
+  - Workflow calls shown as dashed edges in visualization
   - Refactored `graph_cmd.py` to use the new module
+- Reusable workflow discovery (`wetwire_github.discover`)
+  - `DiscoveredReusableWorkflow` dataclass for reusable workflows
+  - `discover_reusable_workflows()` - Discover workflows with workflow_call trigger
+  - Extracts inputs, outputs, and secrets from workflow_call configuration
 - GitHub context pseudo-parameters (`wetwire_github.pseudo`)
   - Constants for common GitHub context values (GITHUB_REF, GITHUB_SHA, etc.)
   - Follows AWS pseudo-parameter pattern for consistency
