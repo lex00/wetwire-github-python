@@ -352,3 +352,488 @@ step = Step(uses="actions/checkout")
 
         assert result.fixed_count >= 1
         assert "@v" in result.source
+
+
+class TestWAG019UnusedPermissions:
+    """Tests for WAG019: Detect unused permissions grants."""
+
+    def test_rule_id(self):
+        """Rule has correct ID."""
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        rule = WAG019UnusedPermissions()
+        assert rule.id == "WAG019"
+
+    def test_rule_description(self):
+        """Rule has a description."""
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        rule = WAG019UnusedPermissions()
+        assert len(rule.description) > 0
+
+    def test_detect_unused_write_permission(self):
+        """Detect write permission that isn't used by any step."""
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        rule = WAG019UnusedPermissions()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Workflow, Job, Step
+
+job = Job(
+    runs_on="ubuntu-latest",
+    permissions={"contents": "write", "issues": "write"},
+    steps=[
+        Step(run="echo hello"),
+    ],
+)
+""",
+            "test.py",
+        )
+        # Should flag unused permissions since no step uses them
+        assert len(errors) >= 1
+        assert "WAG019" in errors[0].rule_id
+
+    def test_allow_used_permissions(self):
+        """Allow permissions that are actually used by actions."""
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        rule = WAG019UnusedPermissions()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Workflow, Job, Step
+
+job = Job(
+    runs_on="ubuntu-latest",
+    permissions={"contents": "read"},
+    steps=[
+        Step(uses="actions/checkout@v4"),
+    ],
+)
+""",
+            "test.py",
+        )
+        # contents: read is needed for checkout
+        assert len(errors) == 0
+
+    def test_detect_overly_broad_permissions(self):
+        """Detect write-all when only specific permissions are needed."""
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        rule = WAG019UnusedPermissions()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Workflow, Job, Step
+
+job = Job(
+    runs_on="ubuntu-latest",
+    permissions="write-all",
+    steps=[
+        Step(uses="actions/checkout@v4"),
+    ],
+)
+""",
+            "test.py",
+        )
+        # write-all is overly permissive for just checkout
+        assert len(errors) >= 1
+
+
+class TestWAG020OverlyPermissiveSecrets:
+    """Tests for WAG020: Warn if secrets are used in run commands without masking."""
+
+    def test_rule_id(self):
+        """Rule has correct ID."""
+        from wetwire_github.linter.rules import WAG020OverlyPermissiveSecrets
+
+        rule = WAG020OverlyPermissiveSecrets()
+        assert rule.id == "WAG020"
+
+    def test_rule_description(self):
+        """Rule has a description."""
+        from wetwire_github.linter.rules import WAG020OverlyPermissiveSecrets
+
+        rule = WAG020OverlyPermissiveSecrets()
+        assert len(rule.description) > 0
+
+    def test_detect_secret_in_echo(self):
+        """Detect secrets being echoed (potential exposure)."""
+        from wetwire_github.linter.rules import WAG020OverlyPermissiveSecrets
+
+        rule = WAG020OverlyPermissiveSecrets()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(run="echo ${{ secrets.API_KEY }}")
+""",
+            "test.py",
+        )
+        # Echoing a secret can expose it
+        assert len(errors) == 1
+        assert "WAG020" in errors[0].rule_id
+
+    def test_detect_secret_in_curl(self):
+        """Detect secrets passed directly to curl commands."""
+        from wetwire_github.linter.rules import WAG020OverlyPermissiveSecrets
+
+        rule = WAG020OverlyPermissiveSecrets()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(run="curl -H 'Authorization: ${{ secrets.TOKEN }}' https://api.example.com")
+""",
+            "test.py",
+        )
+        # Passing secret directly in command line
+        assert len(errors) == 1
+
+    def test_allow_secret_in_env_variable(self):
+        """Allow secrets passed via env variables (proper masking)."""
+        from wetwire_github.linter.rules import WAG020OverlyPermissiveSecrets
+
+        rule = WAG020OverlyPermissiveSecrets()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(
+    run="curl -H 'Authorization: $TOKEN' https://api.example.com",
+    env={"TOKEN": "${{ secrets.TOKEN }}"}
+)
+""",
+            "test.py",
+        )
+        # Using env variable is safer
+        assert len(errors) == 0
+
+    def test_detect_secret_in_multiline_run(self):
+        """Detect secrets in multiline run commands."""
+        from wetwire_github.linter.rules import WAG020OverlyPermissiveSecrets
+
+        rule = WAG020OverlyPermissiveSecrets()
+        errors = rule.check(
+            '''
+from wetwire_github.workflow import Step
+
+step = Step(run="""
+set -e
+export API_KEY=${{ secrets.API_KEY }}
+./deploy.sh
+""")
+''',
+            "test.py",
+        )
+        # Direct export of secret in shell
+        assert len(errors) == 1
+
+
+class TestWAG021MissingOIDCConfiguration:
+    """Tests for WAG021: Suggest OIDC for cloud provider auth."""
+
+    def test_rule_id(self):
+        """Rule has correct ID."""
+        from wetwire_github.linter.rules import WAG021MissingOIDCConfiguration
+
+        rule = WAG021MissingOIDCConfiguration()
+        assert rule.id == "WAG021"
+
+    def test_rule_description(self):
+        """Rule has a description."""
+        from wetwire_github.linter.rules import WAG021MissingOIDCConfiguration
+
+        rule = WAG021MissingOIDCConfiguration()
+        assert len(rule.description) > 0
+
+    def test_detect_aws_static_credentials(self):
+        """Detect AWS auth using static credentials instead of OIDC."""
+        from wetwire_github.linter.rules import WAG021MissingOIDCConfiguration
+
+        rule = WAG021MissingOIDCConfiguration()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(
+    uses="aws-actions/configure-aws-credentials@v4",
+    with_={
+        "aws-access-key-id": "${{ secrets.AWS_ACCESS_KEY_ID }}",
+        "aws-secret-access-key": "${{ secrets.AWS_SECRET_ACCESS_KEY }}",
+    }
+)
+""",
+            "test.py",
+        )
+        # Should suggest OIDC instead of static credentials
+        assert len(errors) == 1
+        assert "OIDC" in errors[0].message or "oidc" in errors[0].message.lower()
+
+    def test_allow_aws_oidc_auth(self):
+        """Allow AWS auth using OIDC."""
+        from wetwire_github.linter.rules import WAG021MissingOIDCConfiguration
+
+        rule = WAG021MissingOIDCConfiguration()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(
+    uses="aws-actions/configure-aws-credentials@v4",
+    with_={
+        "role-to-assume": "arn:aws:iam::123456789:role/my-role",
+        "aws-region": "us-east-1",
+    }
+)
+""",
+            "test.py",
+        )
+        # Using OIDC role assumption
+        assert len(errors) == 0
+
+    def test_detect_gcp_static_credentials(self):
+        """Detect GCP auth using static credentials instead of OIDC."""
+        from wetwire_github.linter.rules import WAG021MissingOIDCConfiguration
+
+        rule = WAG021MissingOIDCConfiguration()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(
+    uses="google-github-actions/auth@v2",
+    with_={
+        "credentials_json": "${{ secrets.GCP_CREDENTIALS }}",
+    }
+)
+""",
+            "test.py",
+        )
+        # Should suggest workload identity instead of service account key
+        assert len(errors) == 1
+
+    def test_allow_gcp_workload_identity(self):
+        """Allow GCP auth using Workload Identity Federation."""
+        from wetwire_github.linter.rules import WAG021MissingOIDCConfiguration
+
+        rule = WAG021MissingOIDCConfiguration()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(
+    uses="google-github-actions/auth@v2",
+    with_={
+        "workload_identity_provider": "projects/123/locations/global/workloadIdentityPools/my-pool/providers/my-provider",
+        "service_account": "my-sa@my-project.iam.gserviceaccount.com",
+    }
+)
+""",
+            "test.py",
+        )
+        # Using Workload Identity Federation
+        assert len(errors) == 0
+
+    def test_detect_azure_static_credentials(self):
+        """Detect Azure auth using static credentials instead of OIDC."""
+        from wetwire_github.linter.rules import WAG021MissingOIDCConfiguration
+
+        rule = WAG021MissingOIDCConfiguration()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(
+    uses="azure/login@v2",
+    with_={
+        "creds": "${{ secrets.AZURE_CREDENTIALS }}",
+    }
+)
+""",
+            "test.py",
+        )
+        # Should suggest federated credentials instead
+        assert len(errors) == 1
+
+
+class TestWAG022ImplicitEnvironmentExposure:
+    """Tests for WAG022: Warn about env vars in shell scripts without escaping."""
+
+    def test_rule_id(self):
+        """Rule has correct ID."""
+        from wetwire_github.linter.rules import WAG022ImplicitEnvironmentExposure
+
+        rule = WAG022ImplicitEnvironmentExposure()
+        assert rule.id == "WAG022"
+
+    def test_rule_description(self):
+        """Rule has a description."""
+        from wetwire_github.linter.rules import WAG022ImplicitEnvironmentExposure
+
+        rule = WAG022ImplicitEnvironmentExposure()
+        assert len(rule.description) > 0
+
+    def test_detect_unquoted_env_var_in_command(self):
+        """Detect unquoted environment variable in shell command."""
+        from wetwire_github.linter.rules import WAG022ImplicitEnvironmentExposure
+
+        rule = WAG022ImplicitEnvironmentExposure()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(
+    run="echo $USER_INPUT",
+    env={"USER_INPUT": "${{ github.event.issue.title }}"}
+)
+""",
+            "test.py",
+        )
+        # USER_INPUT could contain special characters
+        assert len(errors) == 1
+        assert "WAG022" in errors[0].rule_id
+
+    def test_allow_quoted_env_var(self):
+        """Allow properly quoted environment variable."""
+        from wetwire_github.linter.rules import WAG022ImplicitEnvironmentExposure
+
+        rule = WAG022ImplicitEnvironmentExposure()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(
+    run='echo "$USER_INPUT"',
+    env={"USER_INPUT": "${{ github.event.issue.title }}"}
+)
+""",
+            "test.py",
+        )
+        # Quoted variable is safe
+        assert len(errors) == 0
+
+    def test_detect_github_context_in_run(self):
+        """Detect GitHub context used directly in run without escaping."""
+        from wetwire_github.linter.rules import WAG022ImplicitEnvironmentExposure
+
+        rule = WAG022ImplicitEnvironmentExposure()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(run="echo ${{ github.event.issue.title }}")
+""",
+            "test.py",
+        )
+        # Direct interpolation of user-controlled input
+        assert len(errors) == 1
+
+    def test_allow_safe_github_context(self):
+        """Allow safe GitHub context values."""
+        from wetwire_github.linter.rules import WAG022ImplicitEnvironmentExposure
+
+        rule = WAG022ImplicitEnvironmentExposure()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(run="echo ${{ github.sha }}")
+""",
+            "test.py",
+        )
+        # github.sha is not user-controlled
+        assert len(errors) == 0
+
+    def test_detect_pr_title_in_run(self):
+        """Detect PR title (user-controlled) used directly in run."""
+        from wetwire_github.linter.rules import WAG022ImplicitEnvironmentExposure
+
+        rule = WAG022ImplicitEnvironmentExposure()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(run="echo ${{ github.event.pull_request.title }}")
+""",
+            "test.py",
+        )
+        # PR title is user-controlled
+        assert len(errors) == 1
+
+
+class TestNewSecurityRulesInDefaultRules:
+    """Test that new security rules are included in default rules."""
+
+    def test_default_rules_include_wag019(self):
+        """WAG019 is in default rules."""
+        from wetwire_github.linter.rules import get_default_rules
+
+        rules = get_default_rules()
+        rule_ids = [r.id for r in rules]
+        assert "WAG019" in rule_ids
+
+    def test_default_rules_include_wag020(self):
+        """WAG020 is in default rules."""
+        from wetwire_github.linter.rules import get_default_rules
+
+        rules = get_default_rules()
+        rule_ids = [r.id for r in rules]
+        assert "WAG020" in rule_ids
+
+    def test_default_rules_include_wag021(self):
+        """WAG021 is in default rules."""
+        from wetwire_github.linter.rules import get_default_rules
+
+        rules = get_default_rules()
+        rule_ids = [r.id for r in rules]
+        assert "WAG021" in rule_ids
+
+    def test_default_rules_include_wag022(self):
+        """WAG022 is in default rules."""
+        from wetwire_github.linter.rules import get_default_rules
+
+        rules = get_default_rules()
+        rule_ids = [r.id for r in rules]
+        assert "WAG022" in rule_ids
+
+
+class TestNewSecurityRulesWithLinter:
+    """Integration tests with Linter class for new security rules."""
+
+    def test_linter_catches_unused_permissions(self):
+        """Linter catches unused permissions."""
+        from wetwire_github.linter import Linter
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        linter = Linter(rules=[WAG019UnusedPermissions()])
+        result = linter.check(
+            """
+from wetwire_github.workflow import Job, Step
+
+job = Job(
+    runs_on="ubuntu-latest",
+    permissions={"packages": "write"},
+    steps=[Step(run="echo hello")],
+)
+""",
+            "test.py",
+        )
+        assert not result.is_clean
+        assert any(e.rule_id == "WAG019" for e in result.errors)
+
+    def test_linter_catches_secret_exposure(self):
+        """Linter catches overly permissive secret usage."""
+        from wetwire_github.linter import Linter
+        from wetwire_github.linter.rules import WAG020OverlyPermissiveSecrets
+
+        linter = Linter(rules=[WAG020OverlyPermissiveSecrets()])
+        result = linter.check(
+            """
+from wetwire_github.workflow import Step
+
+step = Step(run="echo ${{ secrets.TOKEN }}")
+""",
+            "test.py",
+        )
+        assert not result.is_clean
+        assert any(e.rule_id == "WAG020" for e in result.errors)

@@ -10,7 +10,14 @@ from wetwire_github.linter.linter import LintError
 
 from .base import BaseRule
 
-__all__ = ["WAG017HardcodedSecretsInRun", "WAG018UnpinnedActions"]
+__all__ = [
+    "WAG017HardcodedSecretsInRun",
+    "WAG018UnpinnedActions",
+    "WAG019UnusedPermissions",
+    "WAG020OverlyPermissiveSecrets",
+    "WAG021MissingOIDCConfiguration",
+    "WAG022ImplicitEnvironmentExposure",
+]
 
 # Patterns for common secret formats
 SECRET_PATTERNS = [
@@ -269,3 +276,467 @@ class WAG018UnpinnedActions(BaseRule):
         remaining_errors = self.check(fixed_source, file_path)
 
         return fixed_source, fixed_count, remaining_errors
+
+
+# Mapping of common actions to their required permissions
+ACTION_PERMISSION_REQUIREMENTS = {
+    "actions/checkout": {"contents": "read"},
+    "actions/upload-artifact": {"actions": "read"},
+    "actions/download-artifact": {"actions": "read"},
+    "actions/cache": {"actions": "read"},
+    "actions/github-script": {"contents": "read"},
+    "peter-evans/create-pull-request": {"contents": "write", "pull-requests": "write"},
+    "stefanzweifel/git-auto-commit-action": {"contents": "write"},
+    "peaceiris/actions-gh-pages": {"contents": "write"},
+    "docker/build-push-action": {"packages": "write"},
+    "docker/login-action": {"packages": "write"},
+}
+
+# User-controlled GitHub context paths that could be exploited
+USER_CONTROLLED_CONTEXTS = [
+    "github.event.issue.title",
+    "github.event.issue.body",
+    "github.event.pull_request.title",
+    "github.event.pull_request.body",
+    "github.event.comment.body",
+    "github.event.review.body",
+    "github.event.head_commit.message",
+    "github.event.commits",
+    "github.head_ref",
+    "github.event.pages",
+    "github.event.discussion.title",
+    "github.event.discussion.body",
+]
+
+
+class WAG019UnusedPermissions(BaseRule):
+    """WAG019: Detect unused permissions grants.
+
+    Flags permissions that are declared but not needed by any step in the job.
+    This helps follow the principle of least privilege.
+    """
+
+    @property
+    def id(self) -> str:
+        return "WAG019"
+
+    @property
+    def description(self) -> str:
+        return "Detect unused permissions grants"
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        errors = []
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return errors
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                if self._is_job_call(node):
+                    permissions = self._extract_permissions(node)
+                    steps = self._extract_steps(node)
+
+                    if permissions is None:
+                        continue
+
+                    # Check for overly broad permissions
+                    if isinstance(permissions, str) and permissions in (
+                        "write-all",
+                        "read-all",
+                    ):
+                        errors.append(
+                            LintError(
+                                rule_id=self.id,
+                                message=f"Overly broad '{permissions}' permission. Consider using specific permissions.",
+                                file_path=file_path,
+                                line=node.lineno,
+                                column=node.col_offset,
+                                suggestion="Use specific permissions like {'contents': 'read'} instead of broad grants",
+                            )
+                        )
+                        continue
+
+                    # Check for unused specific permissions
+                    if isinstance(permissions, dict):
+                        used_permissions = self._get_used_permissions(steps)
+                        for perm, level in permissions.items():
+                            if perm not in used_permissions:
+                                errors.append(
+                                    LintError(
+                                        rule_id=self.id,
+                                        message=f"Permission '{perm}: {level}' appears unused",
+                                        file_path=file_path,
+                                        line=node.lineno,
+                                        column=node.col_offset,
+                                        suggestion=f"Remove '{perm}' permission or verify it's needed",
+                                    )
+                                )
+
+        return errors
+
+    def _is_job_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a Job() call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id == "Job"
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr == "Job"
+        return False
+
+    def _extract_permissions(
+        self, node: ast.Call
+    ) -> dict[str, str] | str | None:
+        """Extract permissions from a Job call."""
+        for keyword in node.keywords:
+            if keyword.arg == "permissions":
+                if isinstance(keyword.value, ast.Constant):
+                    val = keyword.value.value
+                    if isinstance(val, str):
+                        return val
+                    return None
+                if isinstance(keyword.value, ast.Dict):
+                    perms: dict[str, str] = {}
+                    for key, val in zip(keyword.value.keys, keyword.value.values):
+                        if isinstance(key, ast.Constant) and isinstance(
+                            val, ast.Constant
+                        ):
+                            k = key.value
+                            v = val.value
+                            if isinstance(k, str) and isinstance(v, str):
+                                perms[k] = v
+                    return perms
+        return None
+
+    def _extract_steps(self, node: ast.Call) -> list[str]:
+        """Extract action uses from steps in a Job call."""
+        actions = []
+        for keyword in node.keywords:
+            if keyword.arg == "steps" and isinstance(keyword.value, ast.List):
+                for step in keyword.value.elts:
+                    if isinstance(step, ast.Call):
+                        for step_kw in step.keywords:
+                            if step_kw.arg == "uses" and isinstance(
+                                step_kw.value, ast.Constant
+                            ):
+                                actions.append(step_kw.value.value)
+        return actions
+
+    def _get_used_permissions(self, actions: list[str]) -> set[str]:
+        """Get the set of permissions used by the given actions."""
+        used = set()
+        for action in actions:
+            # Strip version from action reference
+            action_name = action.split("@")[0] if "@" in action else action
+            if action_name in ACTION_PERMISSION_REQUIREMENTS:
+                used.update(ACTION_PERMISSION_REQUIREMENTS[action_name].keys())
+        return used
+
+
+class WAG020OverlyPermissiveSecrets(BaseRule):
+    """WAG020: Warn if secrets are used in run commands without explicit masking.
+
+    Secrets should be passed via environment variables rather than directly
+    interpolated into shell commands to avoid accidental exposure.
+    """
+
+    @property
+    def id(self) -> str:
+        return "WAG020"
+
+    @property
+    def description(self) -> str:
+        return "Warn about secrets used directly in run commands"
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        errors = []
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return errors
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                if self._is_step_call(node):
+                    run_value = None
+
+                    for keyword in node.keywords:
+                        if keyword.arg == "run" and isinstance(
+                            keyword.value, ast.Constant
+                        ):
+                            run_value = keyword.value.value
+
+                    if run_value and isinstance(run_value, str):
+                        # Check for secrets directly in run command
+                        if "${{ secrets." in run_value:
+                            errors.append(
+                                LintError(
+                                    rule_id=self.id,
+                                    message="Secret used directly in run command may be exposed in logs",
+                                    file_path=file_path,
+                                    line=node.lineno,
+                                    column=node.col_offset,
+                                    suggestion="Pass secrets via env variables: env={'TOKEN': '${{ secrets.TOKEN }}'} and use $TOKEN in the command",
+                                )
+                            )
+
+        return errors
+
+    def _is_step_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a Step() call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id == "Step"
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr == "Step"
+        return False
+
+
+# Cloud provider action patterns for OIDC detection
+CLOUD_PROVIDER_ACTIONS: dict[str, dict[str, list[str] | str]] = {
+    "aws-actions/configure-aws-credentials": {
+        "static_creds": ["aws-access-key-id", "aws-secret-access-key"],
+        "oidc_creds": ["role-to-assume"],
+        "provider": "AWS",
+        "suggestion": "Use OIDC with 'role-to-assume' instead of static AWS credentials",
+    },
+    "google-github-actions/auth": {
+        "static_creds": ["credentials_json"],
+        "oidc_creds": ["workload_identity_provider"],
+        "provider": "GCP",
+        "suggestion": "Use Workload Identity Federation instead of service account JSON key",
+    },
+    "azure/login": {
+        "static_creds": ["creds"],
+        "oidc_creds": ["client-id", "tenant-id", "subscription-id"],
+        "provider": "Azure",
+        "suggestion": "Use OIDC with federated credentials instead of service principal secret",
+    },
+}
+
+
+class WAG021MissingOIDCConfiguration(BaseRule):
+    """WAG021: Suggest OpenID Connect for cloud provider auth.
+
+    Long-lived credentials stored as secrets are less secure than
+    using OIDC-based authentication with cloud providers.
+    """
+
+    @property
+    def id(self) -> str:
+        return "WAG021"
+
+    @property
+    def description(self) -> str:
+        return "Suggest OIDC for cloud provider authentication"
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        errors = []
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return errors
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                if self._is_step_call(node):
+                    uses_value = None
+                    with_dict = {}
+
+                    for keyword in node.keywords:
+                        if keyword.arg == "uses" and isinstance(
+                            keyword.value, ast.Constant
+                        ):
+                            val = keyword.value.value
+                            if isinstance(val, str):
+                                uses_value = val
+                        if keyword.arg in ("with_", "with") and isinstance(
+                            keyword.value, ast.Dict
+                        ):
+                            for key, val in zip(
+                                keyword.value.keys, keyword.value.values
+                            ):
+                                if isinstance(key, ast.Constant):
+                                    k = key.value
+                                    if isinstance(k, str):
+                                        with_dict[k] = (
+                                            val.value
+                                            if isinstance(val, ast.Constant)
+                                            else None
+                                        )
+
+                    if uses_value is not None:
+                        # Strip version from action
+                        action_name = (
+                            uses_value.split("@")[0]
+                            if "@" in uses_value
+                            else uses_value
+                        )
+
+                        if action_name in CLOUD_PROVIDER_ACTIONS:
+                            config = CLOUD_PROVIDER_ACTIONS[action_name]
+                            static_creds = config["static_creds"]
+                            oidc_creds = config["oidc_creds"]
+                            provider = config["provider"]
+                            suggestion = config["suggestion"]
+
+                            # Check if using static credentials
+                            if isinstance(static_creds, list) and isinstance(
+                                oidc_creds, list
+                            ):
+                                uses_static = any(
+                                    key in with_dict for key in static_creds
+                                )
+                                uses_oidc = any(
+                                    key in with_dict for key in oidc_creds
+                                )
+
+                                if uses_static and not uses_oidc:
+                                    suggestion_str = (
+                                        suggestion
+                                        if isinstance(suggestion, str)
+                                        else None
+                                    )
+                                    errors.append(
+                                        LintError(
+                                            rule_id=self.id,
+                                            message=f"{provider} action uses static credentials instead of OIDC",
+                                            file_path=file_path,
+                                            line=node.lineno,
+                                            column=node.col_offset,
+                                            suggestion=suggestion_str,
+                                        )
+                                    )
+
+        return errors
+
+    def _is_step_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a Step() call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id == "Step"
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr == "Step"
+        return False
+
+
+class WAG022ImplicitEnvironmentExposure(BaseRule):
+    """WAG022: Warn about implicit environment exposure in shell scripts.
+
+    User-controlled input (like issue titles, PR bodies) can contain
+    malicious shell commands if not properly quoted/escaped.
+    """
+
+    @property
+    def id(self) -> str:
+        return "WAG022"
+
+    @property
+    def description(self) -> str:
+        return "Warn about unescaped user-controlled input in shell commands"
+
+    def check(self, source: str, file_path: str) -> list[LintError]:
+        errors = []
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return errors
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                if self._is_step_call(node):
+                    run_value = None
+                    env_vars = {}
+
+                    for keyword in node.keywords:
+                        if keyword.arg == "run" and isinstance(
+                            keyword.value, ast.Constant
+                        ):
+                            run_value = keyword.value.value
+                        if keyword.arg == "env" and isinstance(
+                            keyword.value, ast.Dict
+                        ):
+                            for key, val in zip(
+                                keyword.value.keys, keyword.value.values
+                            ):
+                                if isinstance(key, ast.Constant) and isinstance(
+                                    val, ast.Constant
+                                ):
+                                    env_vars[key.value] = val.value
+
+                    if run_value and isinstance(run_value, str):
+                        # Check for direct user-controlled context injection
+                        error = self._check_direct_injection(
+                            run_value, file_path, node.lineno, node.col_offset
+                        )
+                        if error:
+                            errors.append(error)
+                            continue
+
+                        # Check for unquoted env vars from user input
+                        error = self._check_unquoted_env_vars(
+                            run_value,
+                            env_vars,
+                            file_path,
+                            node.lineno,
+                            node.col_offset,
+                        )
+                        if error:
+                            errors.append(error)
+
+        return errors
+
+    def _is_step_call(self, node: ast.Call) -> bool:
+        """Check if a Call node is a Step() call."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id == "Step"
+        if isinstance(node.func, ast.Attribute):
+            return node.func.attr == "Step"
+        return False
+
+    def _check_direct_injection(
+        self, run_value: str, file_path: str, line: int, column: int
+    ) -> LintError | None:
+        """Check for user-controlled context directly in run command."""
+        for context_path in USER_CONTROLLED_CONTEXTS:
+            pattern = rf"\$\{{\{{\s*{re.escape(context_path)}\s*\}}\}}"
+            if re.search(pattern, run_value):
+                return LintError(
+                    rule_id=self.id,
+                    message=f"User-controlled input '{context_path}' used directly in shell command",
+                    file_path=file_path,
+                    line=line,
+                    column=column,
+                    suggestion="Pass user input via env variable and properly quote it: \"$VAR\"",
+                )
+        return None
+
+    def _check_unquoted_env_vars(
+        self,
+        run_value: str,
+        env_vars: dict[str, str],
+        file_path: str,
+        line: int,
+        column: int,
+    ) -> LintError | None:
+        """Check for unquoted env vars that contain user input."""
+        for var_name, var_value in env_vars.items():
+            if var_value is None:
+                continue
+
+            # Check if env var contains user-controlled input
+            is_user_controlled = any(
+                context in var_value for context in USER_CONTROLLED_CONTEXTS
+            )
+
+            if is_user_controlled:
+                # Check if the variable is used unquoted in the run command
+                # Pattern: $VAR_NAME not inside quotes
+                unquoted_pattern = rf'(?<!["\'])\$(?:\{{{var_name}\}}|{var_name})(?!["\'])'
+                if re.search(unquoted_pattern, run_value):
+                    return LintError(
+                        rule_id=self.id,
+                        message=f"Environment variable ${var_name} contains user input and is not properly quoted",
+                        file_path=file_path,
+                        line=line,
+                        column=column,
+                        suggestion=f'Quote the variable: "${var_name}" instead of ${var_name}',
+                    )
+        return None
