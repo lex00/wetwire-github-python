@@ -88,13 +88,13 @@ class TestModularRulesAggregation:
         """All rules can be imported from rules/__init__.py."""
         from wetwire_github.linter.rules import get_default_rules
 
-        # Verify get_default_rules returns all 20 rules
+        # Verify get_default_rules returns all 22 rules
         rules = get_default_rules()
-        assert len(rules) == 20
+        assert len(rules) == 22
 
         rule_ids = {rule.id for rule in rules}
-        # WAG001-WAG016 + WAG050-WAG053
-        expected_ids = {f"WAG{str(i).zfill(3)}" for i in range(1, 17)} | {
+        # WAG001-WAG018 + WAG050-WAG053
+        expected_ids = {f"WAG{str(i).zfill(3)}" for i in range(1, 19)} | {
             "WAG050", "WAG051", "WAG052", "WAG053"
         }
         assert rule_ids == expected_ids
@@ -156,7 +156,7 @@ class TestBackwardsCompatibility:
 
         assert WAG001TypedActionWrappers().id == "WAG001"
         assert WAG006DuplicateWorkflowNames().id == "WAG006"
-        assert len(get_default_rules()) == 20
+        assert len(get_default_rules()) == 22
 
 
 class TestRuleFunctionality:

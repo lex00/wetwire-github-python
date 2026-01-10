@@ -38,6 +38,7 @@ from .builtin import (
     RequireCheckout,
     RequireTimeouts,
 )
+from .config import PolicyConfig, PolicySettings, get_policy_presets, load_config
 from .engine import PolicyEngine
 from .types import Policy, PolicyResult
 
@@ -46,6 +47,11 @@ __all__ = [
     "Policy",
     "PolicyResult",
     "PolicyEngine",
+    # Configuration
+    "PolicyConfig",
+    "PolicySettings",
+    "load_config",
+    "get_policy_presets",
     # Built-in policies
     "RequireCheckout",
     "RequireTimeouts",
