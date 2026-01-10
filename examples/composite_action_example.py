@@ -10,8 +10,8 @@ from wetwire_github.composite import (
     CompositeAction,
     CompositeRuns,
 )
-from wetwire_github.workflow import Step
 from wetwire_github.serialize import to_yaml
+from wetwire_github.workflow import Step
 
 # Define a composite action for setting up a Python project
 setup_python_action = CompositeAction(
