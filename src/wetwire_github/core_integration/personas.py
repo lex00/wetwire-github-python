@@ -1,6 +1,19 @@
 """Persona-based testing for wetwire-core integration.
 
 Provides personas for testing workflow quality from different perspectives.
+
+The personas are organized into two categories:
+
+Domain Personas (workflow quality focus):
+- reviewer: Code review perspective
+- senior-dev: Reliability and performance focus
+- security: Supply chain and access control focus
+- beginner: Learning-friendly workflow evaluation
+
+Spec-Standard Personas (per WETWIRE_SPEC.md Section 7):
+- expert: Deep knowledge, precise requirements
+- terse: Minimal information, expects inference
+- verbose: Over-explains, buries requirements in prose
 """
 
 from typing import Any
@@ -72,6 +85,58 @@ PERSONAS = [
             "has_name": 2.0,
             "has_triggers": 1.5,
             "has_jobs": 1.5,
+        },
+    },
+    # Spec-standard personas per WETWIRE_SPEC.md Section 7
+    {
+        "name": "expert",
+        "description": "Deep knowledge, precise requirements, minimal hand-holding",
+        "criteria": [
+            "Workflow uses advanced features appropriately",
+            "Optimized for performance and efficiency",
+            "Uses precise action versioning",
+            "Follows security best practices",
+            "No unnecessary complexity",
+        ],
+        "weight_overrides": {
+            "uses_pinned_actions": 2.5,
+            "uses_cache": 2.0,
+            "has_concurrency": 2.0,
+            "has_permissions": 2.5,
+            "has_timeout": 1.5,
+        },
+    },
+    {
+        "name": "terse",
+        "description": "Minimal information, expects system to infer defaults",
+        "criteria": [
+            "Workflow is concise without unnecessary verbosity",
+            "Uses sensible defaults where possible",
+            "Minimal configuration overhead",
+            "Simple and direct step commands",
+            "No redundant steps or jobs",
+        ],
+        "weight_overrides": {
+            "has_name": 1.0,
+            "has_jobs": 2.0,
+            "uses_checkout": 1.5,
+        },
+    },
+    {
+        "name": "verbose",
+        "description": "Over-explains, buries requirements in prose",
+        "criteria": [
+            "Workflow handles edge cases gracefully",
+            "Has comprehensive error handling",
+            "Covers multiple scenarios",
+            "Uses matrix builds for coverage",
+            "Has proper job dependencies",
+        ],
+        "weight_overrides": {
+            "has_name": 1.5,
+            "has_triggers": 2.0,
+            "uses_cache": 1.5,
+            "has_concurrency": 1.5,
         },
     },
 ]

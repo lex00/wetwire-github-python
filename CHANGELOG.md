@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Spec-standard personas for testing (per WETWIRE_SPEC.md Section 7)
+  - `expert` - Deep knowledge, precise requirements, minimal hand-holding
+  - `terse` - Minimal information, expects system to infer defaults
+  - `verbose` - Over-explains, buries requirements in prose
+  - Complements existing domain personas (reviewer, senior-dev, security, beginner)
 - Single-line imports from root package
   - Core types: `from wetwire_github import Workflow, Job, Step, Triggers`
   - Trigger types: `PushTrigger, PullRequestTrigger, ScheduleTrigger`

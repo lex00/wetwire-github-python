@@ -98,6 +98,33 @@ strategy = Strategy(
 wetwire-github lint my_package
 ```
 
+## Testing
+
+### What testing personas are available?
+
+Two categories of personas are available:
+
+**Domain Personas** (workflow quality focus):
+- `reviewer` - Code reviewer focused on maintainability
+- `senior-dev` - Senior developer focused on reliability
+- `security` - Security engineer focused on supply chain
+- `beginner` - New developer learning GitHub Actions
+
+**Spec-Standard Personas** (per WETWIRE_SPEC.md Section 7):
+- `expert` - Deep knowledge, precise requirements
+- `terse` - Minimal information, expects inference
+- `verbose` - Over-explains, buries requirements
+
+### How do I run persona-based tests?
+
+```bash
+# Test with specific persona
+wetwire-github test --persona expert --workflow .github/workflows/ci.yml
+
+# Run all personas
+wetwire-github test --all --workflow .github/workflows/ci.yml
+```
+
 ## Troubleshooting
 
 ### actionlint validation fails
