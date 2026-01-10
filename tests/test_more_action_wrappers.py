@@ -1,7 +1,5 @@
 """Tests for additional typed action wrappers (issue #94)."""
 
-import pytest
-
 from wetwire_github.actions import (
     docker_build_push,
     docker_login,
