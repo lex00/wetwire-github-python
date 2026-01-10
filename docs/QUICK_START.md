@@ -369,15 +369,48 @@ my-ci/
 Create workflows interactively with AI:
 
 ```bash
-# Start design session
+# Start design session (uses Anthropic API by default)
 wetwire-github design
+
+# Use Kiro CLI for enterprise environments
+wetwire-github design --provider kiro
 
 # Example prompt:
 # "Create a CI workflow that runs tests on Python 3.11 and 3.12,
 #  deploys to production on main branch"
 ```
 
-Requires `wetwire-core` and `ANTHROPIC_API_KEY`.
+Requires `wetwire-core` and `ANTHROPIC_API_KEY` for the default provider.
+For Kiro CLI integration, see the [Kiro CLI Guide](GITHUB-KIRO-CLI.md).
+
+---
+
+## MCP Server (AI Agent Integration)
+
+Enable AI tools like Claude Code to interact with wetwire-github:
+
+```bash
+# Install with MCP support
+pip install wetwire-github[mcp]
+
+# Start the MCP server
+wetwire-github mcp-server
+```
+
+Configure your AI tool to use the MCP server. For Claude Code, add to your MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "wetwire-github": {
+      "command": "wetwire-github",
+      "args": ["mcp-server"]
+    }
+  }
+}
+```
+
+See [MCP Server Documentation](MCP_SERVER.md) for full configuration options.
 
 ---
 
@@ -387,4 +420,6 @@ Requires `wetwire-core` and `ANTHROPIC_API_KEY`.
 - Learn about [Lint Rules](LINT_RULES.md)
 - Explore [Examples](EXAMPLES.md)
 - Create [Composite Actions](COMPOSITE_ACTIONS.md)
+- Set up [MCP Server](MCP_SERVER.md) for AI agent integration
+- Set up [Kiro CLI Integration](GITHUB-KIRO-CLI.md) for enterprise AI-assisted design
 - Read the [Wetwire Specification](https://github.com/lex00/wetwire/blob/main/docs/WETWIRE_SPEC.md)

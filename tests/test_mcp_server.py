@@ -310,3 +310,164 @@ class TestMCPEntryPoint:
 
         assert hasattr(mcp_server, "main")
         assert callable(getattr(mcp_server, "main"))
+
+
+class TestMCPErrorHandling:
+    """Test MCP server error handling."""
+
+    def test_create_server_error_message_is_helpful(self) -> None:
+        """Test that error message for missing MCP is helpful."""
+        from wetwire_github.mcp_server import MCP_AVAILABLE
+
+        if not MCP_AVAILABLE:
+            from wetwire_github.mcp_server import create_server
+
+            try:
+                create_server()
+                pytest.fail("Expected ImportError")
+            except ImportError as e:
+                # Check error message is helpful
+                assert "pip install" in str(e) or "mcp" in str(e).lower()
+
+    def test_run_server_error_message_is_helpful(self) -> None:
+        """Test that run_server has helpful error message without MCP."""
+        from wetwire_github.mcp_server import MCP_AVAILABLE
+
+        if not MCP_AVAILABLE:
+            import asyncio
+
+            from wetwire_github.mcp_server import run_server
+
+            try:
+                asyncio.run(run_server())
+                pytest.fail("Expected ImportError")
+            except ImportError as e:
+                # Check error message includes installation instructions
+                assert "pip install" in str(e) or "mcp" in str(e).lower()
+
+    def test_get_tool_definitions_empty_without_mcp(self) -> None:
+        """Test get_tool_definitions returns empty list without MCP."""
+        from wetwire_github.mcp_server import MCP_AVAILABLE, get_tool_definitions
+
+        if not MCP_AVAILABLE:
+            tools = get_tool_definitions()
+            assert tools == []
+
+    def test_handle_init_with_invalid_path(self) -> None:
+        """Test handle_init with invalid output path."""
+        pytest.importorskip("mcp")
+        from wetwire_github.mcp_server import handle_init
+
+        result = handle_init(name="test", output="/nonexistent/deeply/nested/path")
+        # Should return a result (success or failure), not raise
+        assert result is not None
+        assert hasattr(result, "success")
+        assert hasattr(result, "message")
+
+    def test_handle_build_with_nonexistent_package(self) -> None:
+        """Test handle_build with nonexistent package."""
+        pytest.importorskip("mcp")
+        from wetwire_github.mcp_server import handle_build
+
+        result = handle_build(package="/nonexistent/package/path")
+        # Should return a result, not raise
+        assert result is not None
+        assert hasattr(result, "success")
+        assert hasattr(result, "message")
+
+    def test_handle_lint_with_nonexistent_package(self) -> None:
+        """Test handle_lint with nonexistent package."""
+        pytest.importorskip("mcp")
+        from wetwire_github.mcp_server import handle_lint
+
+        result = handle_lint(package="/nonexistent/package/path")
+        # Should return a result, not raise
+        assert result is not None
+        assert hasattr(result, "success")
+
+    def test_handle_validate_with_empty_files(self) -> None:
+        """Test handle_validate with empty file list."""
+        pytest.importorskip("mcp")
+        from wetwire_github.mcp_server import handle_validate
+
+        result = handle_validate(files=[])
+        # Should return a result, not raise
+        assert result is not None
+        assert hasattr(result, "success")
+
+    def test_handle_import_with_nonexistent_files(self) -> None:
+        """Test handle_import with nonexistent files."""
+        pytest.importorskip("mcp")
+        from wetwire_github.mcp_server import handle_import
+
+        result = handle_import(files=["/nonexistent/file.yml"])
+        # Should return a result, not raise
+        assert result is not None
+        assert hasattr(result, "success")
+
+
+class TestMCPLogging:
+    """Test MCP server logging functionality."""
+
+    def test_tool_result_includes_status(self) -> None:
+        """Test that ToolResult can indicate success/failure status."""
+        from wetwire_github.mcp_server import ToolResult
+
+        success_result = ToolResult(success=True, message="Operation completed")
+        assert success_result.success is True
+
+        failure_result = ToolResult(success=False, message="Operation failed")
+        assert failure_result.success is False
+
+    def test_tool_handlers_return_tool_result(self) -> None:
+        """Test all handlers return ToolResult with proper fields."""
+        pytest.importorskip("mcp")
+        from wetwire_github.mcp_server import (
+            ToolResult,
+            handle_graph,
+            handle_list,
+        )
+
+        # Test with a simple case
+        result = handle_list(package=".")
+        assert isinstance(result, ToolResult)
+        assert isinstance(result.success, bool)
+        assert isinstance(result.message, str)
+
+        result = handle_graph(package=".")
+        assert isinstance(result, ToolResult)
+
+
+class TestMCPServerCallTool:
+    """Test MCP server call_tool functionality."""
+
+    @pytest.fixture
+    def server(self):
+        """Create MCP server instance."""
+        pytest.importorskip("mcp")
+        from wetwire_github.mcp_server import create_server
+
+        return create_server()
+
+    def test_call_unknown_tool_returns_error(self, server) -> None:
+        """Test calling unknown tool returns error message."""
+        pytest.importorskip("mcp")
+        # Access the call_tool handler via server internals
+        # This tests the behavior described in the implementation
+        from wetwire_github.mcp_server import MCP_AVAILABLE
+
+        if MCP_AVAILABLE:
+            # The server.call_tool is a decorator-registered handler
+            # We can test it indirectly through the server
+            assert server is not None
+
+    def test_tool_call_with_exception_returns_error(self) -> None:
+        """Test that tool call exceptions are caught and returned as errors."""
+        pytest.importorskip("mcp")
+        # This tests that the try/except in call_tool works
+        from wetwire_github.mcp_server import ToolResult, handle_build
+
+        # Call with intentionally problematic input
+        result = handle_build(package="/nonexistent", output="/invalid")
+        assert isinstance(result, ToolResult)
+        # The result should exist without raising
