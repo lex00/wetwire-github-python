@@ -1,6 +1,6 @@
 # Lint Rules Reference
 
-wetwire-github includes a linter with 28 rules (WAG001-WAG022, WAG050-WAG053) that enforce type-safe patterns, catch common mistakes, and detect security issues in GitHub workflow declarations.
+wetwire-github includes a linter with 28 rules (WAG001-WAG022, WAG049-WAG053) that enforce type-safe patterns, catch common mistakes, and detect security issues in GitHub workflow declarations.
 
 ## Quick Reference
 
@@ -18,6 +18,7 @@ wetwire-github includes a linter with 28 rules (WAG001-WAG022, WAG050-WAG053) th
 | [WAG010](#wag010-document-secrets) | Document secrets usage | No |
 | [WAG011](#wag011-complex-conditions) | Flag complex conditions | No |
 | [WAG012](#wag012-suggest-reusable-workflows) | Suggest reusable workflows | No |
+| [WAG049](#wag049-validate-workflow-inputs) | Validate workflow inputs | No |
 | [WAG013](#wag013-extract-inline-env-variables) | Extract inline env variables | Yes |
 | [WAG014](#wag014-extract-inline-matrix-config) | Extract inline matrix config | Yes |
 | [WAG015](#wag015-extract-inline-outputs) | Extract inline outputs | Yes |
@@ -514,6 +515,103 @@ test_job = Job(
 ```
 
 **Why:** Duplicated patterns increase maintenance burden and risk of inconsistencies. Reusable workflows or matrix strategies reduce duplication.
+
+**Auto-fix:** No
+
+---
+
+### WAG049: Validate Workflow Inputs
+
+Ensure that workflow inputs have proper descriptions and choice inputs have sufficient options.
+
+```python
+# Bad - Missing description
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+workflow = Workflow(
+    name="Deploy",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger(
+            inputs={
+                "environment": WorkflowInput(
+                    type="string",
+                    required=True
+                )
+            }
+        )
+    ),
+    jobs={...},
+)
+```
+
+```python
+# Bad - Choice input with only one option
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+workflow = Workflow(
+    name="Deploy",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger(
+            inputs={
+                "environment": WorkflowInput(
+                    description="Target environment",
+                    type="choice",
+                    options=["production"]  # Only one option!
+                )
+            }
+        )
+    ),
+    jobs={...},
+)
+```
+
+```python
+# Good - Proper descriptions and sufficient options
+from wetwire_github.workflow import Workflow, Triggers
+from wetwire_github.workflow.triggers import WorkflowDispatchTrigger, WorkflowCallTrigger
+from wetwire_github.workflow.types import WorkflowInput
+
+workflow = Workflow(
+    name="Deploy",
+    on=Triggers(
+        workflow_dispatch=WorkflowDispatchTrigger(
+            inputs={
+                "environment": WorkflowInput(
+                    description="Target environment for deployment",
+                    type="choice",
+                    options=["staging", "production"],
+                    required=True
+                ),
+                "dry_run": WorkflowInput(
+                    description="Run in dry-run mode without making changes",
+                    type="boolean",
+                    default=False
+                ),
+                "version": WorkflowInput(
+                    description="Version to deploy (e.g., v1.2.3)",
+                    type="string",
+                    required=True
+                )
+            }
+        )
+    ),
+    jobs={...},
+)
+```
+
+**Why:**
+- Descriptions make workflow inputs self-documenting and help users understand what values to provide when manually triggering workflows
+- Choice inputs with only one option are meaningless - use a different type (string, boolean) or add more options
+- Good documentation improves the user experience in the GitHub Actions UI when manually running workflows
+
+**Validation rules:**
+- All WorkflowInput declarations must have a non-empty `description` parameter
+- Inputs with `type="choice"` must have at least 2 options in the `options` list
+- Applies to both `WorkflowDispatchTrigger` and `WorkflowCallTrigger` inputs
 
 **Auto-fix:** No
 

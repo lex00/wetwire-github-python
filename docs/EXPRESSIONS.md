@@ -355,6 +355,305 @@ job = Job(
 
 ---
 
+### Event Context
+
+Access GitHub event payload properties based on the webhook event that triggered the workflow.
+
+```python
+from wetwire_github.workflow.expressions import Event
+
+# Access pull request properties
+pr_title = Event.pull_request("title")
+pr_author = Event.pull_request("user.login")
+pr_draft = Event.pull_request("draft")
+
+# Access issue properties
+issue_title = Event.issue("title")
+issue_labels = Event.issue("labels")
+
+# Access release properties
+release_tag = Event.release("tag_name")
+release_name = Event.release("name")
+
+# Access discussion properties
+discussion_title = Event.discussion("title")
+discussion_body = Event.discussion("body")
+
+# Access push event properties
+push_ref = Event.push("ref")
+push_before = Event.push("before")
+push_after = Event.push("after")
+
+# Access workflow_run properties
+workflow_conclusion = Event.workflow_run("conclusion")
+workflow_name = Event.workflow_run("name")
+
+# Access event sender properties
+sender_login = Event.sender("login")
+sender_type = Event.sender("type")
+
+# Access event repository properties
+repo_full_name = Event.repository("full_name")
+repo_default_branch = Event.repository("default_branch")
+```
+
+**Convenience Properties:**
+
+For common event payload fields, use the shorthand properties:
+
+```python
+from wetwire_github.workflow.expressions import Event
+
+# Pull request shortcuts
+Event.pr_title          # github.event.pull_request.title
+Event.pr_body           # github.event.pull_request.body
+Event.pr_number         # github.event.pull_request.number
+
+# Issue shortcuts
+Event.issue_title       # github.event.issue.title
+Event.issue_body        # github.event.issue.body
+Event.issue_number      # github.event.issue.number
+
+# Release shortcuts
+Event.release_tag_name  # github.event.release.tag_name
+Event.release_body      # github.event.release.body
+
+# Commit shortcuts
+Event.head_commit_message  # github.event.head_commit.message
+Event.head_commit_id       # github.event.head_commit.id
+
+# Sender/Repository shortcuts
+Event.sender_login      # github.event.sender.login
+Event.repo_full_name    # github.event.repository.full_name
+Event.repo_name         # github.event.repository.name
+```
+
+**Example:**
+
+```python
+from wetwire_github.workflow import Job, Step
+from wetwire_github.workflow.expressions import Event, contains
+from wetwire_github.actions import checkout
+
+pr_labeler_job = Job(
+    runs_on="ubuntu-latest",
+    steps=[
+        checkout(),
+        Step(
+            name="Label bug reports",
+            run="gh pr edit ${{ github.event.pull_request.number }} --add-label bug",
+            if_=contains(Event.pr_title, "[BUG]"),
+        ),
+        Step(
+            name="Comment on draft PR",
+            run="gh pr comment ${{ github.event.pull_request.number }} --body 'Draft PR detected'",
+            if_=Event.pull_request("draft"),
+        ),
+    ],
+)
+```
+
+**When to use Event context:**
+- Conditional execution based on event payload content (PR title, issue labels)
+- Accessing event-specific metadata (release tag, workflow run conclusion)
+- Building dynamic messages or notifications using event data
+- Filtering workflows by event properties (draft PRs, specific labels)
+
+---
+
+### Vars Context
+
+Access configuration variables defined at the repository, organization, or environment level. Unlike secrets, variables are not encrypted and are meant for non-sensitive configuration.
+
+```python
+from wetwire_github.workflow.expressions import Vars
+
+# Get configuration variable by name
+api_url = Vars.get("API_URL")
+environment = Vars.get("ENVIRONMENT")
+region = Vars.get("DEPLOYMENT_REGION")
+```
+
+**Example:**
+
+```python
+from wetwire_github.workflow import Job, Step
+from wetwire_github.workflow.expressions import Vars, Secrets
+from wetwire_github.actions import checkout
+
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    steps=[
+        checkout(),
+        Step(
+            name="Deploy to configured environment",
+            run="./deploy.sh",
+            env={
+                "API_URL": Vars.get("API_URL"),           # Non-sensitive config
+                "REGION": Vars.get("DEPLOYMENT_REGION"),  # Non-sensitive config
+                "API_KEY": Secrets.get("API_KEY"),        # Sensitive secret
+            },
+        ),
+    ],
+)
+```
+
+**When to use Vars context:**
+- Non-sensitive configuration values (API URLs, feature flags, environment names)
+- Values that differ between repositories or organizations
+- Configuration that should be visible in workflow logs
+- Settings that may need to be changed without updating workflow code
+
+**Vars vs Secrets:**
+
+| Context | Use For | Encrypted | Visible in Logs |
+|---------|---------|-----------|----------------|
+| `Vars.get()` | Non-sensitive config (URLs, regions) | No | Yes |
+| `Secrets.get()` | Sensitive data (tokens, passwords) | Yes | No (masked) |
+
+---
+
+### Strategy Context
+
+Access matrix strategy execution information when using matrix builds. Provides job index, total count, and strategy settings.
+
+```python
+from wetwire_github.workflow.expressions import StrategyInstance
+
+# Available properties
+StrategyInstance.fail_fast      # Whether fail-fast is enabled
+StrategyInstance.job_index      # Zero-based index of current matrix job
+StrategyInstance.job_total      # Total number of matrix jobs
+StrategyInstance.max_parallel   # Maximum parallel jobs allowed
+```
+
+**Example:**
+
+```python
+from wetwire_github.workflow import Job, Step
+from wetwire_github.workflow.strategy import Strategy, Matrix as MatrixStrategy
+from wetwire_github.workflow.expressions import Matrix, StrategyInstance
+from wetwire_github.actions import checkout
+
+test_job = Job(
+    runs_on="ubuntu-latest",
+    strategy=Strategy(
+        matrix=MatrixStrategy(
+            values={
+                "python": ["3.10", "3.11", "3.12"],
+                "os": ["ubuntu-latest", "macos-latest"],
+            }
+        ),
+        fail_fast=False,
+        max_parallel=4,
+    ),
+    steps=[
+        checkout(),
+        Step(
+            name="Show matrix info",
+            run=f"""
+                echo "Testing Python {Matrix.get('python')} on {Matrix.get('os')}"
+                echo "Job {StrategyInstance.job_index} of {StrategyInstance.job_total}"
+                echo "Max parallel: {StrategyInstance.max_parallel}"
+                echo "Fail fast: {StrategyInstance.fail_fast}"
+            """,
+        ),
+        Step(run="pytest"),
+    ],
+)
+```
+
+**When to use Strategy context:**
+- Display progress information in matrix builds (job 1 of 10)
+- Conditional behavior based on job position (first/last job)
+- Debugging matrix execution strategy
+- Dynamic artifact naming based on job index
+
+**Note:** In most cases, you'll use `Matrix.get()` to access matrix values rather than `StrategyInstance`. The strategy context is primarily for metadata about the matrix execution itself.
+
+---
+
+### Job Context
+
+Access information about the currently running job, including execution status and container details.
+
+```python
+from wetwire_github.workflow.expressions import Job
+
+# Available properties
+Job.status              # Current job status (success, failure, cancelled)
+Job.container_id        # ID of the job's container
+Job.container_network   # Network ID of the job's container
+
+# Access service container properties
+Job.services("postgres", "id")         # Service container ID
+Job.services("redis", "ports.6379")    # Service container port mapping
+```
+
+**Example:**
+
+```python
+from wetwire_github.workflow import Job as JobClass, Step
+from wetwire_github.workflow.expressions import Job
+from wetwire_github.actions import checkout
+
+integration_test_job = JobClass(
+    runs_on="ubuntu-latest",
+    container="node:16",
+    services={
+        "postgres": {
+            "image": "postgres:14",
+            "env": {
+                "POSTGRES_PASSWORD": "postgres",
+            },
+            "options": "--health-cmd pg_isready --health-interval 10s",
+        },
+        "redis": {
+            "image": "redis:6",
+        },
+    },
+    steps=[
+        checkout(),
+        Step(
+            name="Run integration tests",
+            run="npm test",
+            env={
+                "POSTGRES_HOST": "postgres",
+                "POSTGRES_PORT": "5432",
+                "REDIS_HOST": "redis",
+                "REDIS_PORT": "6379",
+                "POSTGRES_CONTAINER_ID": Job.services("postgres", "id"),
+                "JOB_CONTAINER_ID": Job.container_id,
+            },
+        ),
+        Step(
+            name="Debug on failure",
+            if_=Job.status == "failure",
+            run=f"""
+                echo "Job status: {Job.status}"
+                echo "Container ID: {Job.container_id}"
+                echo "Postgres container: {Job.services('postgres', 'id')}"
+                docker logs {Job.services('postgres', 'id')}
+            """,
+        ),
+    ],
+)
+```
+
+**When to use Job context:**
+- Conditional execution based on job status
+- Debugging container-based jobs
+- Accessing service container IDs for logging or debugging
+- Service discovery in containerized workflows
+- Network troubleshooting in multi-container jobs
+
+**Common service properties:**
+- `Job.services("name", "id")` - Container ID
+- `Job.services("name", "network")` - Network ID
+- `Job.services("name", "ports.PORT")` - Port mapping (e.g., `ports.5432`)
+
+---
+
 ## Condition Builders
 
 Condition functions control when jobs or steps execute.
@@ -447,6 +746,432 @@ deploy_step = Step(
     run="./deploy.sh",
     if_=branch("main"),
 )
+```
+
+---
+
+## Expression Functions
+
+GitHub Actions provides built-in functions for string manipulation, formatting, and data processing. wetwire-github wraps these in typed Python functions.
+
+### contains()
+
+Check if a string contains a substring.
+
+```python
+from wetwire_github.workflow.expressions import contains, Event, GitHub
+
+# Check if PR title contains a keyword
+has_bug = contains(Event.pr_title, "bug")
+
+# Check if branch name contains a pattern
+is_feature = contains(GitHub.ref, "feature/")
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import contains, Event
+
+# Label PRs based on title
+label_step = Step(
+    name="Add bug label",
+    run="gh pr edit ${{ github.event.pull_request.number }} --add-label bug",
+    if_=contains(Event.pr_title, "bug"),
+)
+```
+
+**Output:**
+```yaml
+- name: Add bug label
+  run: gh pr edit ${{ github.event.pull_request.number }} --add-label bug
+  if: ${{ contains(github.event.pull_request.title, 'bug') }}
+```
+
+---
+
+### startsWith()
+
+Check if a string starts with a prefix.
+
+```python
+from wetwire_github.workflow.expressions import startsWith, Event, GitHub
+
+# Check if PR title starts with prefix
+is_feat = startsWith(Event.pr_title, "feat:")
+is_fix = startsWith(Event.pr_title, "fix:")
+
+# Check if branch starts with pattern
+is_release = startsWith(GitHub.ref_name, "release/")
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import startsWith, GitHub
+
+# Deploy only release branches
+deploy_step = Step(
+    name="Deploy release",
+    run="./deploy.sh",
+    if_=startsWith(GitHub.ref_name, "release/"),
+)
+```
+
+**Output:**
+```yaml
+- name: Deploy release
+  run: ./deploy.sh
+  if: ${{ startsWith(github.ref_name, 'release/') }}
+```
+
+---
+
+### endsWith()
+
+Check if a string ends with a suffix.
+
+```python
+from wetwire_github.workflow.expressions import endsWith, Event, GitHub
+
+# Check if file path ends with extension
+is_markdown = endsWith(Event.pr_title, ".md")
+is_python = endsWith("setup.py", ".py")
+
+# Check if tag ends with pattern
+is_rc = endsWith(GitHub.ref_name, "-rc")
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Job
+from wetwire_github.workflow.expressions import endsWith, GitHub
+
+# Run docs job only for markdown changes
+docs_job = Job(
+    runs_on="ubuntu-latest",
+    if_=endsWith(GitHub.head_ref, "-docs"),
+    steps=[...],
+)
+```
+
+**Output:**
+```yaml
+docs:
+  runs-on: ubuntu-latest
+  if: ${{ endsWith(github.head_ref, '-docs') }}
+```
+
+---
+
+### format()
+
+Format a string with placeholders using `{0}`, `{1}`, etc.
+
+```python
+from wetwire_github.workflow.expressions import format, GitHub, Runner, hashFiles
+
+# Simple formatting
+cache_key = format("cache-{0}-{1}", Runner.os, "v1")
+
+# With expression arguments
+versioned_cache = format("deps-{0}-{1}", GitHub.ref_name, hashFiles("**/requirements.txt"))
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import format, GitHub, Runner
+from wetwire_github.actions import cache
+
+# Dynamic cache key
+cache_step = cache(
+    path="~/.cache/pip",
+    key=format("pip-{0}-{1}-{2}", Runner.os, GitHub.ref_name, hashFiles("requirements.txt")),
+)
+```
+
+**Output:**
+```yaml
+- uses: actions/cache@v4
+  with:
+    path: ~/.cache/pip
+    key: ${{ format('pip-{0}-{1}-{2}', runner.os, github.ref_name, hashFiles('requirements.txt')) }}
+```
+
+---
+
+### hashFiles()
+
+Generate a hash of files matching a glob pattern. Commonly used for cache keys.
+
+```python
+from wetwire_github.workflow.expressions import hashFiles
+
+# Single file
+lock_hash = hashFiles("requirements.txt")
+
+# Glob pattern
+all_reqs = hashFiles("**/requirements*.txt")
+
+# Multiple patterns (comma-separated)
+all_deps = hashFiles("package-lock.json, yarn.lock")
+```
+
+**Example:**
+```python
+from wetwire_github.workflow.expressions import hashFiles, format, Runner
+from wetwire_github.actions import cache
+
+# Cache with file hash key
+cache_step = cache(
+    path="~/.npm",
+    key=format("npm-{0}-{1}", Runner.os, hashFiles("package-lock.json")),
+    restore_keys=["npm-" + str(Runner.os) + "-"],
+)
+```
+
+**Output:**
+```yaml
+- uses: actions/cache@v4
+  with:
+    path: ~/.npm
+    key: ${{ format('npm-{0}-{1}', runner.os, hashFiles('package-lock.json')) }}
+    restore-keys: npm-${{ runner.os }}-
+```
+
+---
+
+### join()
+
+Join an array into a string with a separator.
+
+```python
+from wetwire_github.workflow.expressions import join, Matrix
+
+# Join with default separator (comma)
+versions = join(Matrix.get("versions"))
+
+# Join with custom separator
+paths = join(Matrix.get("paths"), ":")
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Job, Step
+from wetwire_github.workflow.strategy import Strategy, Matrix as MatrixStrategy
+from wetwire_github.workflow.expressions import join, Matrix
+
+test_job = Job(
+    runs_on="ubuntu-latest",
+    strategy=Strategy(
+        matrix=MatrixStrategy(
+            values={"versions": [["3.10", "3.11", "3.12"]]}
+        )
+    ),
+    steps=[
+        Step(
+            name="Display versions",
+            run="echo 'Testing: $VERSIONS'",
+            env={"VERSIONS": join(Matrix.get("versions"), ", ")},
+        ),
+    ],
+)
+```
+
+**Output:**
+```yaml
+- name: Display versions
+  run: echo 'Testing: $VERSIONS'
+  env:
+    VERSIONS: ${{ join(matrix.versions, ', ') }}
+```
+
+---
+
+### toJson()
+
+Convert a value to JSON string format.
+
+```python
+from wetwire_github.workflow.expressions import toJson, Matrix, Expression
+
+# Convert matrix to JSON
+matrix_json = toJson(Expression("matrix"))
+
+# Convert context to JSON
+github_json = toJson(Expression("github"))
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import toJson, Expression
+
+debug_step = Step(
+    name="Debug matrix",
+    run="echo '$MATRIX_JSON'",
+    env={"MATRIX_JSON": toJson(Expression("matrix"))},
+)
+```
+
+**Output:**
+```yaml
+- name: Debug matrix
+  run: echo '$MATRIX_JSON'
+  env:
+    MATRIX_JSON: ${{ toJSON(matrix) }}
+```
+
+---
+
+### fromJson()
+
+Parse a JSON string into an object.
+
+```python
+from wetwire_github.workflow.expressions import fromJson, Env, Inputs
+
+# Parse JSON from environment variable
+config = fromJson(Env.get("CONFIG_JSON"))
+
+# Parse JSON from input
+matrix_config = fromJson(Inputs.get("matrix_json"))
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Job, Step
+from wetwire_github.workflow.strategy import Strategy
+from wetwire_github.workflow.expressions import fromJson, Inputs
+
+# Dynamic matrix from JSON input
+test_job = Job(
+    runs_on="ubuntu-latest",
+    strategy=Strategy(
+        matrix=fromJson(Inputs.get("matrix_json"))
+    ),
+    steps=[...],
+)
+```
+
+**Output:**
+```yaml
+test:
+  runs-on: ubuntu-latest
+  strategy:
+    matrix: ${{ fromJSON(inputs.matrix_json) }}
+```
+
+---
+
+### lower()
+
+Convert a string to lowercase.
+
+```python
+from wetwire_github.workflow.expressions import lower, GitHub, Env
+
+# Lowercase literal string
+name = lower("HELLO")
+
+# Lowercase expression
+ref_lower = lower(GitHub.ref_name)
+env_lower = lower(Env.get("ENVIRONMENT"))
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import lower, GitHub
+
+normalize_step = Step(
+    name="Normalize branch name",
+    run="echo $BRANCH",
+    env={"BRANCH": lower(GitHub.ref_name)},
+)
+```
+
+**Output:**
+```yaml
+- name: Normalize branch name
+  run: echo $BRANCH
+  env:
+    BRANCH: ${{ lower(github.ref_name) }}
+```
+
+---
+
+### upper()
+
+Convert a string to uppercase.
+
+```python
+from wetwire_github.workflow.expressions import upper, GitHub, Env
+
+# Uppercase literal string
+name = upper("hello")
+
+# Uppercase expression
+ref_upper = upper(GitHub.ref_name)
+env_upper = upper(Env.get("environment"))
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import upper, Inputs
+
+deploy_step = Step(
+    name="Deploy to environment",
+    run="./deploy.sh",
+    env={"ENV": upper(Inputs.get("environment"))},
+)
+```
+
+**Output:**
+```yaml
+- name: Deploy to environment
+  run: ./deploy.sh
+  env:
+    ENV: ${{ upper(inputs.environment) }}
+```
+
+---
+
+### trim()
+
+Remove leading and trailing whitespace from a string.
+
+```python
+from wetwire_github.workflow.expressions import trim, Env, Inputs
+
+# Trim literal string
+cleaned = trim("  hello  ")
+
+# Trim expression
+clean_input = trim(Inputs.get("value"))
+clean_env = trim(Env.get("CONFIG"))
+```
+
+**Example:**
+```python
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import trim, Inputs
+
+deploy_step = Step(
+    name="Deploy with cleaned input",
+    run="./deploy.sh $VERSION",
+    env={"VERSION": trim(Inputs.get("version"))},
+)
+```
+
+**Output:**
+```yaml
+- name: Deploy with cleaned input
+  run: ./deploy.sh $VERSION
+  env:
+    VERSION: ${{ trim(inputs.version) }}
 ```
 
 ---
