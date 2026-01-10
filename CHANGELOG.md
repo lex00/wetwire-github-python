@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
   - Trigger types: `PushTrigger, PullRequestTrigger, ScheduleTrigger`
   - Expression builders: `Secrets, GitHub, always, failure, success, cancelled`
 - Modular linter rules architecture (`wetwire_github.linter.rules/`)
-  - Organized by category: action, expression, organization, validation, pattern
+  - Organized by category: action, expression, organization, validation, pattern, extraction
   - Backwards compatible with existing imports
   - Easier to navigate, test, and extend
 - Loader module (`wetwire_github.loader`)
@@ -52,11 +52,14 @@ All notable changes to this project will be documented in this file.
   - Escape hatches and workarounds
   - Team onboarding playbook
   - Integration patterns
-- New lint rules (WAG009-WAG012):
+- New lint rules (WAG009-WAG015):
   - WAG009: Validate webhook event types in triggers
   - WAG010: Detect secrets used to help document requirements
   - WAG011: Flag overly complex conditional logic
   - WAG012: Suggest reusable workflows for duplicated patterns
+  - WAG013: Extract inline env dicts (>3 entries) to named variables
+  - WAG014: Extract complex inline matrix configurations
+  - WAG015: Extract inline outputs dicts (>2 entries) to named variables
 - Additional typed action wrappers (`wetwire_github.actions`)
   - `github_script` - Run JavaScript using GitHub API (actions/github-script@v7)
   - `docker_login` - Log in to Docker registries (docker/login-action@v3)

@@ -68,6 +68,18 @@ class TestModularRulesImports:
         assert WAG011ComplexConditions().id == "WAG011"
         assert WAG012SuggestReusableWorkflows().id == "WAG012"
 
+    def test_import_extraction_rules(self):
+        """Can import extraction-related rules from rules.extraction_rules."""
+        from wetwire_github.linter.rules.extraction_rules import (
+            WAG013InlineEnvVariables,
+            WAG014InlineMatrixConfig,
+            WAG015InlineOutputs,
+        )
+
+        assert WAG013InlineEnvVariables().id == "WAG013"
+        assert WAG014InlineMatrixConfig().id == "WAG014"
+        assert WAG015InlineOutputs().id == "WAG015"
+
 
 class TestModularRulesAggregation:
     """Test that rules/__init__.py aggregates all rules."""
@@ -76,12 +88,12 @@ class TestModularRulesAggregation:
         """All rules can be imported from rules/__init__.py."""
         from wetwire_github.linter.rules import get_default_rules
 
-        # Verify get_default_rules returns all 12 rules
+        # Verify get_default_rules returns all 15 rules
         rules = get_default_rules()
-        assert len(rules) == 12
+        assert len(rules) == 15
 
         rule_ids = {rule.id for rule in rules}
-        expected_ids = {f"WAG{str(i).zfill(3)}" for i in range(1, 13)}
+        expected_ids = {f"WAG{str(i).zfill(3)}" for i in range(1, 16)}
         assert rule_ids == expected_ids
 
         # Verify each rule class can be imported
@@ -100,6 +112,9 @@ class TestModularRulesAggregation:
             "WAG010MissingSecretVariables",
             "WAG011ComplexConditions",
             "WAG012SuggestReusableWorkflows",
+            "WAG013InlineEnvVariables",
+            "WAG014InlineMatrixConfig",
+            "WAG015InlineOutputs",
         ]
         for class_name in rule_classes:
             assert hasattr(rules_module, class_name), f"Missing {class_name}"
@@ -133,7 +148,7 @@ class TestBackwardsCompatibility:
 
         assert WAG001TypedActionWrappers().id == "WAG001"
         assert WAG006DuplicateWorkflowNames().id == "WAG006"
-        assert len(get_default_rules()) == 12
+        assert len(get_default_rules()) == 15
 
 
 class TestRuleFunctionality:

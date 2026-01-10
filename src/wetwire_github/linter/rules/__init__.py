@@ -8,6 +8,7 @@ This module provides a modular organization of lint rules:
 - organization_rules: Rules for code organization (WAG004-WAG007)
 - validation_rules: Rules for validation (WAG009, WAG010)
 - pattern_rules: Rules for patterns and complexity (WAG011, WAG012)
+- extraction_rules: Rules for inline extraction (WAG013-WAG015)
 """
 
 from .action_rules import KNOWN_ACTIONS, WAG001TypedActionWrappers
@@ -16,6 +17,11 @@ from .expression_rules import (
     WAG002UseConditionBuilders,
     WAG003UseSecretsContext,
     WAG008HardcodedExpressions,
+)
+from .extraction_rules import (
+    WAG013InlineEnvVariables,
+    WAG014InlineMatrixConfig,
+    WAG015InlineOutputs,
 )
 from .organization_rules import (
     WAG004UseMatrixBuilder,
@@ -57,6 +63,10 @@ __all__ = [
     # Pattern rules
     "WAG011ComplexConditions",
     "WAG012SuggestReusableWorkflows",
+    # Extraction rules
+    "WAG013InlineEnvVariables",
+    "WAG014InlineMatrixConfig",
+    "WAG015InlineOutputs",
     # Functions
     "get_default_rules",
 ]
@@ -77,4 +87,7 @@ def get_default_rules() -> list[BaseRule]:
         WAG010MissingSecretVariables(),
         WAG011ComplexConditions(),
         WAG012SuggestReusableWorkflows(),
+        WAG013InlineEnvVariables(),
+        WAG014InlineMatrixConfig(),
+        WAG015InlineOutputs(),
     ]
