@@ -1,8 +1,7 @@
 """Tests for JobOutput type."""
 
-import pytest
-from wetwire_github.workflow import Job, JobOutput
 from wetwire_github.serialize import to_dict
+from wetwire_github.workflow import Job, JobOutput
 
 
 def test_basic_job_output_creation():

@@ -317,7 +317,13 @@ def validate_step_outputs(workflow: "Workflow") -> ReferenceValidationResult:
         # Check job outputs for step references
         all_step_ids = set(step_id_indices.keys())
         for output_name, output_value in job.outputs.items():
-            output_refs = _find_step_refs_in_string(output_value)
+            # Handle JobOutput objects - extract the value string
+            if isinstance(output_value, str):
+                output_str = output_value
+            else:
+                # JobOutput or similar object with .value attribute
+                output_str = str(output_value.value) if hasattr(output_value, "value") else str(output_value)
+            output_refs = _find_step_refs_in_string(output_str)
             for ref in output_refs:
                 if ref not in all_step_ids:
                     errors.append(

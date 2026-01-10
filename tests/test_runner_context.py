@@ -133,10 +133,6 @@ class TestRunnerContextInCacheKeys:
 
     def test_runner_os_in_cache_key(self):
         """Runner.os can be used in cache key construction."""
-        # While we can't directly test cache action here without importing it,
-        # we can verify the expression itself works
-        cache_key_expr = Expression(f"pip-{'{}'}-${{{{ hashFiles('requirements.txt') }}}}")
-
         # Test that we can create an expression that includes runner.os
         # This would be used like: f"pip-{Runner.os}-hash"
         assert "runner.os" in str(Runner.os)
