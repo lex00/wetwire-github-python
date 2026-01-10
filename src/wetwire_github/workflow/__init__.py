@@ -21,6 +21,7 @@ from .expressions import (
 )
 from .job import Job
 from .matrix import Matrix, Strategy
+from .runner import SelfHostedRunner
 from .step import Step
 from .triggers import (
     BranchProtectionRuleTrigger,
@@ -86,6 +87,7 @@ __all__ = [
     "Step",
     "Matrix",
     "Strategy",
+    "SelfHostedRunner",
     # Supporting types
     "Concurrency",
     "Defaults",

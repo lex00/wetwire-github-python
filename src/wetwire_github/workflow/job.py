@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .matrix import Strategy
+from .runner import SelfHostedRunner
 from .step import Step
 from .types import Concurrency, Container, Environment, Permissions, Service
 
@@ -13,7 +14,7 @@ class Job:
     """A job in a GitHub Actions workflow."""
 
     name: str = ""
-    runs_on: str | list[str] = "ubuntu-latest"
+    runs_on: str | list[str] | SelfHostedRunner = "ubuntu-latest"
     needs: list[Any] | None = None  # List of Job references
     if_: str | None = None
     environment: Environment | None = None
