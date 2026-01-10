@@ -19,6 +19,11 @@ All notable changes to this project will be documented in this file.
   - `setup_actions()` - Injects action wrappers into a namespace
   - `setup_all()` - Injects all types and actions
   - `get_all_exports()` - Returns dict of all exportable items
+- Provider module (`wetwire_github.provider`)
+  - `WorkflowProvider` class for build orchestration
+  - `build()` - Generates YAML content for workflows
+  - `validate()` - Validates workflows before building
+  - `write()` - Writes workflow files to output directory
 - Kiro CLI integration module (`wetwire_github.kiro`)
   - `install_kiro_configs()` - Installs agent and MCP configs for Kiro CLI
   - `launch_kiro()` - Launches Kiro CLI with wetwire-github-runner agent
