@@ -80,6 +80,47 @@ class WAG001TypedActionWrappers(BaseRule):
             return node.func.attr == "Step"
         return False
 
+    def fix(self, source: str, file_path: str) -> tuple[str, int, list[LintError]]:
+        """Fix raw action strings by replacing with typed wrappers.
+
+        Returns:
+            Tuple of (fixed_source, fixed_count, remaining_errors)
+        """
+        fixed_count = 0
+        fixed_source = source
+
+        # Map of action names to wrapper function names
+        action_wrappers = {
+            "actions/checkout": "checkout",
+            "actions/setup-python": "setup_python",
+            "actions/setup-node": "setup_node",
+            "actions/setup-go": "setup_go",
+            "actions/setup-java": "setup_java",
+            "actions/cache": "cache",
+            "actions/upload-artifact": "upload_artifact",
+            "actions/download-artifact": "download_artifact",
+        }
+
+        # Pattern to find Step(uses="actions/...@v...")
+        for action_name, wrapper_name in action_wrappers.items():
+            # Match Step(uses="action@version") or Step(uses='action@version')
+            pattern = re.compile(
+                rf'Step\s*\(\s*uses\s*=\s*["\']({re.escape(action_name)}@[^"\']+)["\']\s*\)',
+                re.MULTILINE,
+            )
+
+            def make_replacement(match: re.Match[str]) -> str:
+                nonlocal fixed_count
+                fixed_count += 1
+                return f"{wrapper_name}()"
+
+            fixed_source = pattern.sub(make_replacement, fixed_source)
+
+        # Check if there are remaining issues
+        remaining_errors = self.check(fixed_source, file_path)
+
+        return fixed_source, fixed_count, remaining_errors
+
 
 class WAG006DuplicateWorkflowNames(BaseRule):
     """WAG006: Detect duplicate workflow names in the same file."""
@@ -199,7 +240,9 @@ class WAG008HardcodedExpressions(BaseRule):
 
     @property
     def description(self) -> str:
-        return "Detect hardcoded GitHub expression strings; use Expression objects instead"
+        return (
+            "Detect hardcoded GitHub expression strings; use Expression objects instead"
+        )
 
     def check(self, source: str, file_path: str) -> list[LintError]:
         errors = []
@@ -243,7 +286,9 @@ class WAG002UseConditionBuilders(BaseRule):
 
     @property
     def description(self) -> str:
-        return "Use condition builders (always(), failure(), etc.) instead of raw strings"
+        return (
+            "Use condition builders (always(), failure(), etc.) instead of raw strings"
+        )
 
     def check(self, source: str, file_path: str) -> list[LintError]:
         errors = []
@@ -285,6 +330,35 @@ class WAG002UseConditionBuilders(BaseRule):
         if isinstance(node.func, ast.Attribute):
             return node.func.attr in ("Step", "Job")
         return False
+
+    def fix(self, source: str, file_path: str) -> tuple[str, int, list[LintError]]:
+        """Fix hardcoded condition expressions by replacing with builders.
+
+        Returns:
+            Tuple of (fixed_source, fixed_count, remaining_errors)
+        """
+        fixed_count = 0
+        fixed_source = source
+
+        # Replace each condition function
+        for func_name in ["always", "failure", "success", "cancelled"]:
+            # Pattern to match if_="${{ func() }}" or if_='${{ func() }}'
+            pattern = re.compile(
+                rf'if_\s*=\s*["\'][^"\']*\$\{{\{{\s*{func_name}\(\)\s*\}}\}}[^"\']*["\']',
+                re.MULTILINE,
+            )
+
+            def make_replacement(match: re.Match[str]) -> str:
+                nonlocal fixed_count
+                fixed_count += 1
+                return f"if_={func_name}()"
+
+            fixed_source = pattern.sub(make_replacement, fixed_source)
+
+        # Check if there are remaining issues
+        remaining_errors = self.check(fixed_source, file_path)
+
+        return fixed_source, fixed_count, remaining_errors
 
 
 class WAG003UseSecretsContext(BaseRule):
@@ -330,9 +404,7 @@ class WAG003UseSecretsContext(BaseRule):
 
         return errors
 
-    def fix(
-        self, source: str, file_path: str
-    ) -> tuple[str, int, list[LintError]]:
+    def fix(self, source: str, file_path: str) -> tuple[str, int, list[LintError]]:
         """Fix hardcoded secrets access by replacing with Secrets.get().
 
         Returns:
