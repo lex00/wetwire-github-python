@@ -21,6 +21,7 @@ from .expressions import (
     Matrix as MatrixContext,
 )
 from .job import Job
+from .job_output import JobOutput
 from .matrix import Matrix, Strategy
 from .runner import SelfHostedRunner
 from .step import Step
@@ -102,6 +103,7 @@ __all__ = [
     "WorkflowInput",
     "WorkflowOutput",
     "WorkflowSecret",
+    "JobOutput",
     "StepOutput",
     # Triggers
     "Triggers",

@@ -14,6 +14,7 @@ from .docker_metadata import docker_metadata
 from .download_artifact import download_artifact
 from .gh_release import gh_release
 from .github_script import github_script
+from .labeler import labeler
 from .setup_buildx import setup_buildx
 from .setup_dotnet import setup_dotnet
 from .setup_go import setup_go
@@ -39,6 +40,7 @@ __all__ = [
     "download_artifact",
     "gh_release",
     "github_script",
+    "labeler",
     "setup_buildx",
     "setup_dotnet",
     "setup_go",

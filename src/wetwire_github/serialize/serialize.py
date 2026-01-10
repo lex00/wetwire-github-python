@@ -72,7 +72,10 @@ def _is_empty(value: Any) -> bool:
 
 def _serialize_value(value: Any) -> Any:
     """Recursively serialize a value."""
-    if _is_form_element(value):
+    if _is_job_output(value):
+        # JobOutput serializes to just its value string
+        return value.value
+    elif _is_form_element(value):
         # Import here to avoid circular imports
         from wetwire_github.issue_templates.types import _serialize_form_element
         return _serialize_form_element(value)
@@ -91,6 +94,15 @@ def _serialize_value(value: Any) -> Any:
         return result
     else:
         return value
+
+
+def _is_job_output(obj: Any) -> bool:
+    """Check if obj is a JobOutput dataclass instance."""
+    return (
+        is_dataclass(obj)
+        and not isinstance(obj, type)
+        and obj.__class__.__name__ == "JobOutput"
+    )
 
 
 def _is_matrix_class(obj: Any) -> bool:

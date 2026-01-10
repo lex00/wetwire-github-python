@@ -86,6 +86,21 @@ class RunnerContext:
     tool_cache = Expression("runner.tool_cache")
     debug = Expression("runner.debug")
 
+    @staticmethod
+    def is_linux() -> Expression:
+        """Check if runner OS is Linux."""
+        return Expression("runner.os == 'Linux'")
+
+    @staticmethod
+    def is_windows() -> Expression:
+        """Check if runner OS is Windows."""
+        return Expression("runner.os == 'Windows'")
+
+    @staticmethod
+    def is_macos() -> Expression:
+        """Check if runner OS is macOS."""
+        return Expression("runner.os == 'macOS'")
+
 
 class NeedsContext:
     """Accessor for needs context (job dependencies)."""
