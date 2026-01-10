@@ -24,6 +24,13 @@ All notable changes to this project will be documented in this file.
   - Entry point added to pyproject.toml
   - `main()` function for direct server startup
   - Works with Kiro/Cursor/Claude Code MCP integration
+- Adoption/Migration Guide (`docs/ADOPTION.md`)
+  - Side-by-side adoption strategies
+  - Incremental migration path
+  - Import command usage
+  - Escape hatches and workarounds
+  - Team onboarding playbook
+  - Integration patterns
 
 ## [0.1.0] - 2026-01-06
 
