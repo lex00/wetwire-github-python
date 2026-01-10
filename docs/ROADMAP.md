@@ -141,9 +141,9 @@ This document tracks completed and planned features for wetwire-github.
 
 - [ ] **GitLab CI Support** - Parallel support for GitLab CI/CD
 - [ ] **Multi-Provider** - Unified syntax for GitHub Actions, GitLab CI, Jenkins
-- [ ] **Policy Engine** - Organization-level policy enforcement
-- [ ] **Cost Optimization** - Analyze and optimize workflow runtime costs
-- [ ] **Security Scanning** - Built-in security analysis for workflows
+- [x] **Policy Engine** - Organization-level policy enforcement (PR #151)
+- [x] **Cost Optimization** - Analyze and optimize workflow runtime costs (PR #151)
+- [x] **Security Scanning** - Built-in security analysis for workflows (PR #151)
 - [ ] **Workflow Marketplace** - Share and discover reusable workflows
 
 ---
