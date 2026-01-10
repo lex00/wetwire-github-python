@@ -1,6 +1,5 @@
 """Tests for Secret Scanning configuration support."""
 
-import pytest
 import re
 
 
