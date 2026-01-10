@@ -245,9 +245,48 @@ def create_parser() -> argparse.ArgumentParser:
         help="Output file",
     )
     graph_parser.add_argument(
+        "--filter",
+        help="Filter pattern to show only matching jobs (glob pattern)",
+    )
+    graph_parser.add_argument(
+        "--exclude",
+        help="Exclude pattern to hide matching jobs (glob pattern)",
+    )
+    graph_parser.add_argument(
+        "--legend",
+        action="store_true",
+        help="Include a legend explaining the color scheme",
+    )
+    graph_parser.add_argument(
         "package",
         nargs="?",
         help="Python package to analyze",
+    )
+
+    # action command
+    action_parser = subparsers.add_parser(
+        "action",
+        help="Generate action.yml from composite actions",
+        description="Discover composite action declarations from Python packages and serialize to action.yml files.",
+    )
+    action_subparsers = action_parser.add_subparsers(dest="action_command", help="Action commands")
+
+    # action build command
+    action_build_parser = action_subparsers.add_parser(
+        "build",
+        help="Generate action.yml from Python declarations",
+        description="Discover composite action declarations and serialize to action.yml files.",
+    )
+    action_build_parser.add_argument(
+        "--output",
+        "-o",
+        help="Output directory (default: .)",
+        default=".",
+    )
+    action_build_parser.add_argument(
+        "package",
+        nargs="?",
+        help="Python package to discover actions from",
     )
 
     # mcp-server command
@@ -437,10 +476,44 @@ def cmd_graph(args: argparse.Namespace) -> int:
         package_path=package_path,
         output_format=args.format,
         output_file=args.output,
+        filter_pattern=getattr(args, "filter", None),
+        exclude_pattern=getattr(args, "exclude", None),
+        show_legend=getattr(args, "legend", False),
     )
 
     if output:
         print(output)
+
+    return exit_code
+
+
+def cmd_action(args: argparse.Namespace) -> int:
+    """Execute action command."""
+    if args.action_command == "build":
+        return cmd_action_build(args)
+
+    # No subcommand specified
+    print("Error: Please specify a subcommand (e.g., 'build')", file=sys.stderr)
+    return 1
+
+
+def cmd_action_build(args: argparse.Namespace) -> int:
+    """Execute action build command."""
+    from wetwire_github.cli.action_build import build_actions
+
+    # Use current directory if no package specified
+    package_path = args.package or "."
+
+    exit_code, messages = build_actions(
+        package_path=package_path,
+        output_dir=args.output,
+    )
+
+    for msg in messages:
+        if exit_code == 0:
+            print(f"Generated: {msg}")
+        else:
+            print(msg, file=sys.stderr)
 
     return exit_code
 
@@ -497,6 +570,7 @@ def main(argv: list[str] | None = None) -> int:
         "design": cmd_design,
         "test": cmd_test,
         "graph": cmd_graph,
+        "action": cmd_action,
         "mcp-server": cmd_mcp_server,
         "kiro": cmd_kiro,
     }

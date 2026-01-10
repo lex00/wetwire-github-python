@@ -23,6 +23,12 @@ This document tracks completed and planned features for wetwire-github.
 - [x] **Utility Actions** - `github_script`
 - [x] **Docker Actions** - `docker_login`, `docker_build_push`, `setup_buildx`, `docker_metadata`
 - [x] **Integration Actions** - `configure_aws_credentials`, `codecov`, `create_pull_request`, `gh_release`
+- [x] **Pages Actions** - `deploy_pages`, `configure_pages`
+- [x] **Security Actions** - `attest_build_provenance`
+
+### Composite Actions ✅
+
+- [x] **Composite Actions Support** - Create composite actions using typed Python declarations
 
 ### Extended Config Types ✅
 
@@ -116,11 +122,7 @@ This document tracks completed and planned features for wetwire-github.
 ### Near-Term (Next Release)
 
 - [ ] **Additional Action Wrappers** - More commonly used actions
-  - [ ] `actions/deploy-pages`
-  - [ ] `actions/configure-pages`
-  - [ ] `actions/attest-build-provenance`
-  - [ ] `slsa-framework/slsa-github-generator`
-- [ ] **Composite Actions** - Support for creating composite actions in Python
+  - [ ] `slsa-framework/slsa-github-generator` (Note: This is a reusable workflow, not a simple action wrapper, and requires different abstraction patterns)
 - [ ] **Action Metadata Generation** - Generate `action.yml` from Python definitions
 - [ ] **Enhanced Graph Visualization** - Color coding, filtering, search
 - [ ] **Performance Optimization** - Caching for large monorepos
@@ -165,7 +167,7 @@ This document tracks completed and planned features for wetwire-github.
 | **Loader Pattern** | ✅ Yes | ✅ Yes | ✅ Full parity |
 | **Provider Pattern** | ✅ Yes | ✅ Yes | ✅ Full parity |
 | **Extended Configs** | 3 types | N/A | ✅ Domain-specific |
-| **Action Wrappers** | 18 wrappers | N/A | ✅ Domain-specific |
+| **Action Wrappers** | 21 wrappers | N/A | ✅ Domain-specific |
 | **Pseudo-Parameters** | GitHub contexts | AWS pseudo-params | ✅ Full parity |
 | **PropertyTypes** | N/A | Nested types | 🟡 Different domain |
 | **Intrinsics** | Expressions | Fn::* functions | 🟡 Different domain |
@@ -178,7 +180,7 @@ This document tracks completed and planned features for wetwire-github.
 ### Domain-Specific Differences
 
 **wetwire-github unique features:**
-1. Action wrappers (18 typed wrappers for common actions)
+1. Action wrappers (21 typed wrappers for common actions)
 2. Extended config types (Dependabot, Issue Templates, Discussion Templates)
 3. GitHub context pseudo-parameters
 4. Webhook event validation
@@ -253,12 +255,14 @@ Both packages follow the same architectural patterns and provide equivalent deve
 - 8 additional lint rules (WAG009-WAG016)
 - Loader module with namespace injection
 - Provider module for build orchestration
-- Expanded action wrappers (18 total)
+- Expanded action wrappers (21 total)
 - GitHub context pseudo-parameters
 - Reusable workflow discovery
 - MCP server
 - Kiro CLI integration
 - Adoption/migration guide
+- Composite actions support
+- New action wrappers: `deploy_pages`, `configure_pages`, `attest_build_provenance`
 
 ---
 

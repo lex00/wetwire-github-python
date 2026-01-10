@@ -14,6 +14,9 @@ def graph_workflows(
     package_path: str,
     output_format: str = "mermaid",
     output_file: str | None = None,
+    filter_pattern: str | None = None,
+    exclude_pattern: str | None = None,
+    show_legend: bool = False,
 ) -> tuple[int, str]:
     """Generate dependency graph for workflows.
 
@@ -21,6 +24,9 @@ def graph_workflows(
         package_path: Path to package directory
         output_format: Output format ("mermaid" or "dot")
         output_file: Optional output file path
+        filter_pattern: Optional glob pattern to filter jobs
+        exclude_pattern: Optional glob pattern to exclude jobs
+        show_legend: Whether to include a legend
 
     Returns:
         Tuple of (exit_code, output_string)
@@ -47,9 +53,14 @@ def graph_workflows(
 
     # Generate output using graph methods
     if output_format == "dot":
-        output = graph.to_dot()
+        output = graph.to_dot(filter_pattern=filter_pattern, exclude_pattern=exclude_pattern)
     else:
-        output = graph.to_mermaid()
+        output = graph.to_mermaid(filter_pattern=filter_pattern, exclude_pattern=exclude_pattern)
+
+    # Add legend if requested
+    if show_legend:
+        legend = graph.generate_legend(format=output_format)
+        output = output + legend
 
     # Write to file if specified
     if output_file:
