@@ -13,11 +13,47 @@ from wetwire_github.policy import (
     NoHardcodedSecrets,
     PinActions,
     Policy,
+    PolicyConfig,
     PolicyEngine,
+    RequireApproval,
     RequireCheckout,
     RequireTimeouts,
+    load_config,
 )
 from wetwire_github.runner import extract_workflows
+
+
+def get_policies_from_config(config: PolicyConfig) -> list[Policy]:
+    """Get policies based on configuration.
+
+    Args:
+        config: PolicyConfig with enabled/disabled policies and parameters
+
+    Returns:
+        List of enabled Policy instances with configured parameters
+    """
+    policies: list[Policy] = []
+
+    if config.require_checkout.enabled:
+        policies.append(RequireCheckout())
+
+    if config.require_timeouts.enabled:
+        policies.append(RequireTimeouts())
+
+    if config.no_hardcoded_secrets.enabled:
+        policies.append(NoHardcodedSecrets())
+
+    if config.pin_actions.enabled:
+        policies.append(PinActions())
+
+    if config.limit_job_count.enabled:
+        max_jobs = config.limit_job_count.params.get("max_jobs", 10)
+        policies.append(LimitJobCount(max_jobs=max_jobs))
+
+    if config.require_approval.enabled:
+        policies.append(RequireApproval())
+
+    return policies
 
 
 def get_default_policies() -> list[Policy]:
@@ -39,6 +75,7 @@ def run_policies(
     package_path: str,
     output_format: str = "text",
     no_cache: bool = False,
+    config_path: Path | None = None,
 ) -> tuple[int, str]:
     """Run policies against workflows in a package.
 
@@ -46,6 +83,7 @@ def run_policies(
         package_path: Path to package directory containing workflow definitions
         output_format: Output format ("text", "json", or "table")
         no_cache: If True, bypass discovery cache
+        config_path: Optional path to config file or directory
 
     Returns:
         Tuple of (exit_code, output_string)
@@ -64,6 +102,9 @@ def run_policies(
         if output_format == "json":
             return 1, json.dumps({"error": error_msg, "results": []})
         return 1, error_msg
+
+    # Load configuration
+    config = load_config(config_path or package)
 
     # Initialize cache if not disabled
     cache = None if no_cache else DiscoveryCache()
@@ -94,8 +135,15 @@ def run_policies(
             return 1, json.dumps({"error": msg, "results": []})
         return 1, msg
 
-    # Run policies
-    policies = get_default_policies()
+    # Get policies from config
+    policies = get_policies_from_config(config)
+
+    if not policies:
+        msg = "No policies enabled in configuration"
+        if output_format == "json":
+            return 0, json.dumps({"message": msg, "results": []})
+        return 0, msg
+
     engine = PolicyEngine(policies=policies)
 
     # Collect results per workflow

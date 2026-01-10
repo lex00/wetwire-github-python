@@ -129,12 +129,72 @@ def create_parser() -> argparse.ArgumentParser:
         help="Python package to lint",
     )
 
-    # policy command
+    # policy command (with subcommands)
     policy_parser = subparsers.add_parser(
         "policy",
         help="Run policy checks against workflows",
         description="Run organization-level policy checks against discovered workflows.",
     )
+    policy_subparsers = policy_parser.add_subparsers(
+        dest="policy_command",
+        help="Policy commands",
+    )
+
+    # policy check command (default behavior)
+    policy_check_parser = policy_subparsers.add_parser(
+        "check",
+        help="Run policy checks against workflows",
+        description="Run organization-level policy checks against discovered workflows.",
+    )
+    policy_check_parser.add_argument(
+        "--format",
+        "-f",
+        choices=["text", "json", "table"],
+        default="text",
+        help="Output format (default: text)",
+    )
+    policy_check_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable discovery caching",
+    )
+    policy_check_parser.add_argument(
+        "--config",
+        "-c",
+        help="Path to policy config file",
+    )
+    policy_check_parser.add_argument(
+        "package",
+        nargs="?",
+        help="Python package to check policies against",
+    )
+
+    # policy init command
+    policy_init_parser = policy_subparsers.add_parser(
+        "init",
+        help="Create policy configuration file",
+        description="Generate a .wetwire-policy.yaml configuration file.",
+    )
+    policy_init_parser.add_argument(
+        "--preset",
+        "-p",
+        choices=["minimal", "standard", "strict"],
+        default="standard",
+        help="Policy preset to use (default: standard)",
+    )
+    policy_init_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing config file",
+    )
+    policy_init_parser.add_argument(
+        "--output",
+        "-o",
+        default=".",
+        help="Output directory (default: current directory)",
+    )
+
+    # Also support direct policy command arguments for backwards compatibility
     policy_parser.add_argument(
         "--format",
         "-f",
@@ -148,9 +208,38 @@ def create_parser() -> argparse.ArgumentParser:
         help="Disable discovery caching",
     )
     policy_parser.add_argument(
+        "--config",
+        "-c",
+        help="Path to policy config file",
+    )
+    policy_parser.add_argument(
         "package",
         nargs="?",
         help="Python package to check policies against",
+    )
+
+    # scan command
+    scan_parser = subparsers.add_parser(
+        "scan",
+        help="Run security scans against workflows",
+        description="Run security scanner to detect vulnerabilities in discovered workflows.",
+    )
+    scan_parser.add_argument(
+        "--format",
+        "-f",
+        choices=["text", "json", "table"],
+        default="text",
+        help="Output format (default: text)",
+    )
+    scan_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable discovery caching",
+    )
+    scan_parser.add_argument(
+        "package",
+        nargs="?",
+        help="Python package to scan for security issues",
     )
 
     # cost command
@@ -345,7 +434,9 @@ def create_parser() -> argparse.ArgumentParser:
         help="Generate action.yml from composite actions",
         description="Discover composite action declarations from Python packages and serialize to action.yml files.",
     )
-    action_subparsers = action_parser.add_subparsers(dest="action_command", help="Action commands")
+    action_subparsers = action_parser.add_subparsers(
+        dest="action_command", help="Action commands"
+    )
 
     # action build command
     action_build_parser = action_subparsers.add_parser(
@@ -397,6 +488,30 @@ def create_parser() -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="Force reinstall of configurations",
+    )
+
+    # report command
+    report_parser = subparsers.add_parser(
+        "report",
+        help="Generate unified quality report",
+        description="Run all quality checks and generate a unified summary report.",
+    )
+    report_parser.add_argument(
+        "--format",
+        "-f",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+    report_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable discovery caching",
+    )
+    report_parser.add_argument(
+        "package",
+        nargs="?",
+        help="Python package to analyze",
     )
 
     return parser
@@ -481,12 +596,70 @@ def cmd_lint(args: argparse.Namespace) -> int:
 
 def cmd_policy(args: argparse.Namespace) -> int:
     """Execute policy command."""
+
+    # Check for subcommand
+    policy_command = getattr(args, "policy_command", None)
+
+    if policy_command == "init":
+        return cmd_policy_init(args)
+    elif policy_command == "check" or policy_command is None:
+        return cmd_policy_check(args)
+    else:
+        print(f"Unknown policy subcommand: {policy_command}", file=sys.stderr)
+        return 1
+
+
+def cmd_policy_check(args: argparse.Namespace) -> int:
+    """Execute policy check command."""
+    from pathlib import Path
+
     from wetwire_github.cli.policy_cmd import run_policies
 
     # Use current directory if no package specified
     package_path = args.package or "."
 
+    # Get config path if specified
+    config_path = None
+    if hasattr(args, "config") and args.config:
+        config_path = Path(args.config)
+
     exit_code, output = run_policies(
+        package_path=package_path,
+        output_format=args.format,
+        no_cache=args.no_cache,
+        config_path=config_path,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
+
+
+def cmd_policy_init(args: argparse.Namespace) -> int:
+    """Execute policy init command."""
+    from wetwire_github.cli.policy_init_cmd import init_policy_config
+
+    exit_code, messages = init_policy_config(
+        output_dir=args.output,
+        preset=args.preset,
+        force=args.force,
+    )
+
+    for msg in messages:
+        print(msg)
+
+    return exit_code
+
+
+def cmd_scan(args: argparse.Namespace) -> int:
+    """Execute scan command."""
+    from wetwire_github.cli.scan_cmd import run_scan
+
+    # Use current directory if no package specified
+    package_path = args.package or "."
+
+    exit_code, output = run_scan(
         package_path=package_path,
         output_format=args.format,
         no_cache=args.no_cache,
@@ -675,6 +848,25 @@ def cmd_kiro(args: argparse.Namespace) -> int:
     return launch_kiro(prompt=args.prompt)
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    """Execute report command."""
+    from wetwire_github.cli.report_cmd import generate_report
+
+    # Use current directory if no package specified
+    package_path = args.package or "."
+
+    exit_code, output = generate_report(
+        package_path=package_path,
+        output_format=args.format,
+        no_cache=args.no_cache,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main entry point for the CLI."""
     parser = create_parser()
@@ -691,6 +883,7 @@ def main(argv: list[str] | None = None) -> int:
         "list": cmd_list,
         "lint": cmd_lint,
         "policy": cmd_policy,
+        "scan": cmd_scan,
         "cost": cmd_cost,
         "import": cmd_import,
         "init": cmd_init,
@@ -700,6 +893,7 @@ def main(argv: list[str] | None = None) -> int:
         "action": cmd_action,
         "mcp-server": cmd_mcp_server,
         "kiro": cmd_kiro,
+        "report": cmd_report,
     }
 
     if args.command in commands:

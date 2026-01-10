@@ -258,11 +258,13 @@ class TestPolicyCommandCLIIntegration:
 
         parser = create_parser()
 
-        # Check that policy subcommand exists
-        # Parse with policy command to verify it's registered
-        args = parser.parse_args(["policy", "."])
+        # Check that policy check subcommand exists
+        # Parse with policy check command to verify it's registered
+        args = parser.parse_args(["policy", "check"])
         assert args.command == "policy"
-        assert args.package == "."
+        assert args.policy_command == "check"
+        # Package defaults to None in argparse, CLI defaults to "." when None
+        assert args.package is None
 
     def test_policy_command_format_option(self):
         """Policy command should accept --format option."""
@@ -270,10 +272,10 @@ class TestPolicyCommandCLIIntegration:
 
         parser = create_parser()
 
-        args = parser.parse_args(["policy", "--format", "json", "."])
+        args = parser.parse_args(["policy", "check", "--format", "json", "."])
         assert args.format == "json"
 
-        args = parser.parse_args(["policy", "-f", "table", "."])
+        args = parser.parse_args(["policy", "check", "-f", "table", "."])
         assert args.format == "table"
 
     def test_policy_command_no_cache_option(self):
@@ -282,5 +284,5 @@ class TestPolicyCommandCLIIntegration:
 
         parser = create_parser()
 
-        args = parser.parse_args(["policy", "--no-cache", "."])
+        args = parser.parse_args(["policy", "check", "--no-cache", "."])
         assert args.no_cache is True
