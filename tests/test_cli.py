@@ -173,6 +173,30 @@ class TestGraphCommand:
         assert result.returncode == 0
 
 
+class TestActionCommand:
+    """Tests for action command stub."""
+
+    def test_action_command_help(self):
+        """Action command shows help."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "action", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "action" in result.stdout.lower()
+
+    def test_action_build_help(self):
+        """Action build command shows help."""
+        result = subprocess.run(
+            [sys.executable, "-m", "wetwire_github.cli", "action", "build", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "build" in result.stdout.lower()
+
+
 class TestExitCodes:
     """Tests for exit code semantics."""
 

@@ -6,18 +6,24 @@ Lists discovered workflows and jobs from Python packages.
 import json
 from pathlib import Path
 
-from wetwire_github.discover import DiscoveredResource, discover_in_directory
+from wetwire_github.discover import (
+    DiscoveredResource,
+    DiscoveryCache,
+    discover_in_directory,
+)
 
 
 def list_resources(
     package_path: str,
     output_format: str = "table",
+    no_cache: bool = False,
 ) -> tuple[int, str]:
     """List discovered workflows and jobs.
 
     Args:
         package_path: Path to package directory
         output_format: Output format ("table" or "json")
+        no_cache: If True, bypass discovery cache
 
     Returns:
         Tuple of (exit_code, output_string)
@@ -30,8 +36,11 @@ def list_resources(
             return 1, json.dumps({"error": error_msg})
         return 1, error_msg
 
+    # Initialize cache if not disabled
+    cache = None if no_cache else DiscoveryCache()
+
     # Discover resources
-    resources = discover_in_directory(str(path))
+    resources = discover_in_directory(str(path), cache=cache)
 
     # Separate by type
     workflows = [r for r in resources if r.type == "Workflow"]

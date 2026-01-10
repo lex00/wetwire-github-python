@@ -15,6 +15,7 @@ The `wetwire-github` command provides tools for generating and validating GitHub
 | `wetwire-github design` | AI-assisted workflow design |
 | `wetwire-github test` | Persona-based testing |
 | `wetwire-github graph` | Generate DAG visualization of workflow jobs |
+| `wetwire-github action` | Generate action.yml from composite actions |
 | `wetwire-github mcp-server` | Start MCP server for AI agent integration |
 
 ```bash
@@ -444,6 +445,18 @@ wetwire-github graph ci/ --format dot
 # Save to file
 wetwire-github graph ci/ -o workflow.md
 
+# Filter to show only specific jobs
+wetwire-github graph ci/ --filter "test*"
+
+# Exclude certain jobs from the graph
+wetwire-github graph ci/ --exclude "deploy*"
+
+# Include a legend explaining color scheme
+wetwire-github graph ci/ --legend
+
+# Combine filters and legend
+wetwire-github graph ci/ --filter "*test*" --legend -o test-jobs.md
+
 # Render DOT to PNG (requires graphviz)
 wetwire-github graph ci/ --format dot | dot -Tpng -o workflow.png
 ```
@@ -455,6 +468,20 @@ wetwire-github graph ci/ --format dot | dot -Tpng -o workflow.png
 | `PACKAGE` | Path to Python package (default: current directory) |
 | `--format, -f {dot,mermaid}` | Output format (default: mermaid) |
 | `--output, -o FILE` | Output file |
+| `--filter PATTERN` | Filter pattern to show only matching jobs (glob pattern) |
+| `--exclude PATTERN` | Exclude pattern to hide matching jobs (glob pattern) |
+| `--legend` | Include a legend explaining the color scheme |
+
+### Color Coding
+
+The graph visualization uses color coding to highlight different job types:
+
+- **Blue** - Jobs with matrix builds
+- **Yellow** - Jobs with conditional execution (`if` conditions)
+- **Green** - Jobs calling reusable workflows
+- **Orange** - Dependency edges (job relationships)
+
+Use `--legend` to include this information directly in the output.
 
 ### Mermaid Output Example
 
@@ -465,6 +492,8 @@ graph TD
     deploy["deploy"]
     test --> build
     deploy --> test
+    style test fill:#4A90E2
+    style deploy fill:#F5A623
 ```
 
 ### DOT Output Example
@@ -478,6 +507,155 @@ digraph {
   test -> build
   deploy -> test
 }
+```
+
+---
+
+## action
+
+Generate action.yml files from typed Python composite action declarations.
+
+The `action` command provides subcommands for working with composite GitHub Actions.
+
+### action build
+
+Generate action.yml files from Python composite action declarations.
+
+```bash
+# Build from a package path (simplest)
+wetwire-github action build ci/
+
+# Build with specific output directory
+wetwire-github action build ci/ -o actions/my-action/
+
+# Build from current directory
+wetwire-github action build
+```
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `PACKAGE` | Path to Python package containing action declarations (default: current directory) |
+| `--output, -o PATH` | Output directory (default: `.`) |
+
+#### How It Works
+
+1. Discovers Python files in the specified package
+2. Finds `CompositeAction` instances using AST-based discovery
+3. Validates action structure (name, description, runs, inputs, outputs)
+4. Serializes to GitHub Actions action.yml format
+5. Writes to output directory
+
+#### Python Declaration Example
+
+```python
+from wetwire_github.composite import (
+    CompositeAction,
+    CompositeRuns,
+    ActionInput,
+    ActionOutput,
+)
+from wetwire_github.workflow import Step
+
+my_action = CompositeAction(
+    name="Setup Python Project",
+    description="Install Python and dependencies",
+    inputs={
+        "python-version": ActionInput(
+            description="Python version to use",
+            required=True,
+        ),
+        "cache": ActionInput(
+            description="Enable dependency caching",
+            default="true",
+        ),
+    },
+    outputs={
+        "cache-hit": ActionOutput(
+            description="Whether cache was restored",
+            value="${{ steps.cache.outputs.cache-hit }}",
+        ),
+    },
+    runs=CompositeRuns(
+        steps=[
+            Step(
+                uses="actions/setup-python@v5",
+                with_={
+                    "python-version": "${{ inputs.python-version }}",
+                },
+            ),
+            Step(
+                id="cache",
+                uses="actions/cache@v4",
+                with_={
+                    "path": "~/.cache/pip",
+                    "key": "pip-${{ inputs.python-version }}",
+                },
+                shell="bash",
+            ),
+            Step(
+                run="pip install -r requirements.txt",
+                shell="bash",
+            ),
+        ],
+    ),
+)
+```
+
+#### Generated action.yml
+
+```yaml
+name: Setup Python Project
+description: Install Python and dependencies
+
+inputs:
+  python-version:
+    description: Python version to use
+    required: true
+  cache:
+    description: Enable dependency caching
+    default: 'true'
+
+outputs:
+  cache-hit:
+    description: Whether cache was restored
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: pip-${{ inputs.python-version }}
+      shell: bash
+    - run: pip install -r requirements.txt
+      shell: bash
+```
+
+#### Use Cases
+
+- **Reusable setup steps** - Package common setup logic as composite actions
+- **Cross-repository sharing** - Share actions between multiple repositories
+- **Typed declarations** - Define actions using typed Python instead of raw YAML
+- **Local actions** - Create local actions in `.github/actions/` directories
+
+#### Example Project Structure
+
+```
+my-project/
+├── actions/
+│   ├── __init__.py
+│   └── setup.py          # CompositeAction declarations
+└── .github/
+    └── actions/
+        └── setup-python/
+            └── action.yml  # Generated output
 ```
 
 ---

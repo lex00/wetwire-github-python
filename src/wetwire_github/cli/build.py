@@ -6,7 +6,7 @@ Discovers workflows in Python packages and generates YAML/JSON output.
 import json
 from pathlib import Path
 
-from wetwire_github.discover import discover_in_directory
+from wetwire_github.discover import DiscoveryCache, discover_in_directory
 from wetwire_github.runner import extract_workflows
 from wetwire_github.serialize import to_dict, to_yaml
 from wetwire_github.template import order_jobs
@@ -16,6 +16,7 @@ def build_workflows(
     package_path: str,
     output_dir: str,
     output_format: str = "yaml",
+    no_cache: bool = False,
 ) -> tuple[int, list[str]]:
     """Build workflows from a Python package.
 
@@ -23,6 +24,7 @@ def build_workflows(
         package_path: Path to Python package containing workflow definitions
         output_dir: Directory to write output files
         output_format: Output format ("yaml" or "json")
+        no_cache: If True, bypass discovery cache
 
     Returns:
         Tuple of (exit_code, list of generated file paths)
@@ -37,8 +39,11 @@ def build_workflows(
     # Create output directory if needed
     output.mkdir(parents=True, exist_ok=True)
 
+    # Initialize cache if not disabled
+    cache = None if no_cache else DiscoveryCache()
+
     # Discover workflow files using AST
-    discovered = discover_in_directory(str(package))
+    discovered = discover_in_directory(str(package), cache=cache)
     workflow_files = {r.file_path for r in discovered if r.type == "Workflow"}
 
     if not workflow_files:

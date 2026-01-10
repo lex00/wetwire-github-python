@@ -4,10 +4,15 @@ Uses Python's AST module to scan source files for Workflow and Job
 definitions without importing them.
 """
 
+from __future__ import annotations
+
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from wetwire_github.discover.cache import DiscoveryCache
 
 # Resource types we discover
 DISCOVERABLE_TYPES = {"Workflow", "Job"}
@@ -143,15 +148,24 @@ class ResourceVisitor(ast.NodeVisitor):
         return names
 
 
-def discover_in_file(file_path: str) -> list[DiscoveredResource]:
+def discover_in_file(
+    file_path: str, cache: DiscoveryCache | None = None
+) -> list[DiscoveredResource]:
     """Discover Workflow and Job resources in a Python file.
 
     Args:
         file_path: Path to a Python source file
+        cache: Optional DiscoveryCache instance for caching results
 
     Returns:
         List of discovered resources
     """
+    # Check cache first if available
+    if cache is not None:
+        cached = cache.get(file_path)
+        if cached is not None:
+            return cached
+
     try:
         with open(file_path, encoding="utf-8") as f:
             source = f.read()
@@ -166,6 +180,10 @@ def discover_in_file(file_path: str) -> list[DiscoveredResource]:
     visitor = ResourceVisitor(file_path)
     visitor.visit(tree)
 
+    # Cache the results if cache is available
+    if cache is not None:
+        cache.set(file_path, visitor.resources)
+
     return visitor.resources
 
 
@@ -174,6 +192,7 @@ def discover_in_directory(
     recursive: bool = True,
     exclude_hidden: bool = True,
     exclude_pycache: bool = True,
+    cache: DiscoveryCache | None = None,
 ) -> list[DiscoveredResource]:
     """Discover resources in all Python files in a directory.
 
@@ -182,6 +201,7 @@ def discover_in_directory(
         recursive: Whether to scan subdirectories
         exclude_hidden: Whether to exclude hidden directories (starting with .)
         exclude_pycache: Whether to exclude __pycache__ directories
+        cache: Optional DiscoveryCache instance for caching results
 
     Returns:
         List of all discovered resources
@@ -206,7 +226,7 @@ def discover_in_directory(
 
         for entry in entries:
             if entry.is_file() and entry.suffix == ".py":
-                resources.extend(discover_in_file(str(entry)))
+                resources.extend(discover_in_file(str(entry), cache=cache))
             elif entry.is_dir() and recursive:
                 if not should_skip_dir(entry.name):
                     scan_directory(entry)
@@ -470,6 +490,7 @@ def discover_actions(
     recursive: bool = True,
     exclude_hidden: bool = True,
     exclude_pycache: bool = True,
+    cache: DiscoveryCache | None = None,
 ) -> list[DiscoveredResource]:
     """Discover CompositeAction resources in all Python files in a directory.
 
@@ -478,6 +499,7 @@ def discover_actions(
         recursive: Whether to scan subdirectories
         exclude_hidden: Whether to exclude hidden directories (starting with .)
         exclude_pycache: Whether to exclude __pycache__ directories
+        cache: Optional DiscoveryCache instance for caching results
 
     Returns:
         List of all discovered CompositeAction resources
@@ -502,21 +524,37 @@ def discover_actions(
 
         for entry in entries:
             if entry.is_file() and entry.suffix == ".py":
-                # Discover actions in this file
-                try:
-                    with open(entry, encoding="utf-8") as f:
-                        source = f.read()
-                except (OSError, UnicodeDecodeError):
-                    continue
+                # Check cache first
+                cached_resources = None
+                if cache is not None:
+                    cached_resources = cache.get(str(entry))
 
-                try:
-                    tree = ast.parse(source, filename=str(entry))
-                except SyntaxError:
-                    continue
+                if cached_resources is not None:
+                    # Filter for CompositeAction resources from cache
+                    action_resources = [
+                        r for r in cached_resources if r.type == "CompositeAction"
+                    ]
+                    resources.extend(action_resources)
+                else:
+                    # Discover actions in this file
+                    try:
+                        with open(entry, encoding="utf-8") as f:
+                            source = f.read()
+                    except (OSError, UnicodeDecodeError):
+                        continue
 
-                visitor = ActionVisitor(str(entry))
-                visitor.visit(tree)
-                resources.extend(visitor.resources)
+                    try:
+                        tree = ast.parse(source, filename=str(entry))
+                    except SyntaxError:
+                        continue
+
+                    visitor = ActionVisitor(str(entry))
+                    visitor.visit(tree)
+                    resources.extend(visitor.resources)
+
+                    # Cache the results
+                    if cache is not None:
+                        cache.set(str(entry), visitor.resources)
             elif entry.is_dir() and recursive:
                 if not should_skip_dir(entry.name):
                     scan_directory(entry)

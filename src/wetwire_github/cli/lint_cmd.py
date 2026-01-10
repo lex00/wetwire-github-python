@@ -20,6 +20,7 @@ def lint_package(
     package_path: str,
     output_format: str = "text",
     fix: bool = False,
+    no_cache: bool = False,
 ) -> tuple[int, str]:
     """Lint Python workflow code in a package.
 
@@ -27,6 +28,7 @@ def lint_package(
         package_path: Path to package directory or Python file
         output_format: Output format ("text" or "json")
         fix: Whether to auto-fix issues
+        no_cache: If True, bypass discovery cache (currently unused by linter)
 
     Returns:
         Tuple of (exit_code, output_string)
