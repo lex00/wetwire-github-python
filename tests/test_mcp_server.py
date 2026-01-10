@@ -292,3 +292,21 @@ class TestMCPOptionalDependency:
 
             with pytest.raises(ImportError):
                 create_server()
+
+
+class TestMCPEntryPoint:
+    """Test MCP server entry point."""
+
+    def test_main_function_exists(self) -> None:
+        """Test main() function exists for entry point."""
+        from wetwire_github.mcp_server import main
+
+        assert callable(main)
+
+    def test_main_function_is_callable(self) -> None:
+        """Test main() can be referenced as entry point."""
+        # This simulates the entry point check
+        from wetwire_github import mcp_server
+
+        assert hasattr(mcp_server, "main")
+        assert callable(getattr(mcp_server, "main"))

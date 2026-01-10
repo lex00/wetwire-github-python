@@ -463,7 +463,18 @@ async def run_server() -> None:
         )
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Main entry point for the MCP server executable.
+
+    This function is used as the entry point for the wetwire-github-mcp script.
+    """
     import asyncio
 
-    asyncio.run(run_server())
+    try:
+        asyncio.run(run_server())
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main()

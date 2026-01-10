@@ -20,6 +20,10 @@ All notable changes to this project will be documented in this file.
   - wetwire-github syntax documentation
   - Lint rules reference (WAG001-WAG008)
   - Design workflow guidance
+- Standalone MCP server executable (`wetwire-github-mcp`)
+  - Entry point added to pyproject.toml
+  - `main()` function for direct server startup
+  - Works with Kiro/Cursor/Claude Code MCP integration
 
 ## [0.1.0] - 2026-01-06
 
