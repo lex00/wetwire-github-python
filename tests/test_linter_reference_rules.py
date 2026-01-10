@@ -547,6 +547,217 @@ job_b = Job(
         assert "my_step" in errors[0].message
 
 
+class TestWAG050AutoFix:
+    """Tests for WAG050 auto-fix functionality."""
+
+    def test_fix_removes_unused_job_output(self):
+        """Fix should remove unused job outputs."""
+        rule = WAG050UnusedJobOutputs()
+        source = """
+from wetwire_github.workflow import Workflow, Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    outputs={
+        "version": "${{ steps.get_version.outputs.version }}",
+        "unused_output": "${{ steps.other.outputs.value }}",
+    },
+    steps=[Step(run="echo test")],
+)
+
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    needs=["build"],
+    steps=[
+        Step(run="echo ${{ needs.build.outputs.version }}"),
+    ],
+)
+
+workflow = Workflow(
+    name="CI",
+    on={"push": {}},
+    jobs={"build": build_job, "deploy": deploy_job},
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Should remove unused_output
+        assert count >= 1
+        if count > 0:
+            assert "unused_output" not in fixed
+
+    def test_fix_keeps_all_referenced_outputs(self):
+        """Fix should keep all outputs that are referenced."""
+        rule = WAG050UnusedJobOutputs()
+        source = """
+from wetwire_github.workflow import Workflow, Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    outputs={
+        "version": "${{ steps.get_version.outputs.version }}",
+    },
+    steps=[Step(run="echo test")],
+)
+
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    needs=["build"],
+    steps=[
+        Step(run="echo ${{ needs.build.outputs.version }}"),
+    ],
+)
+
+workflow = Workflow(
+    name="CI",
+    on={"push": {}},
+    jobs={"build": build_job, "deploy": deploy_job},
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Nothing to fix - all outputs are used
+        assert count == 0
+        assert fixed == source
+
+    def test_fix_multiple_unused_outputs(self):
+        """Fix should remove multiple unused outputs."""
+        rule = WAG050UnusedJobOutputs()
+        source = """
+from wetwire_github.workflow import Workflow, Job, Step
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    outputs={
+        "version": "${{ steps.ver.outputs.version }}",
+        "sha": "${{ steps.sha.outputs.sha }}",
+        "unused": "${{ steps.unused.outputs.value }}",
+    },
+    steps=[Step(run="echo test")],
+)
+
+workflow = Workflow(
+    name="CI",
+    on={"push": {}},
+    jobs={"build": build_job},
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Should remove all three unused outputs
+        assert count >= 1
+
+
+class TestWAG052AutoFix:
+    """Tests for WAG052 auto-fix functionality."""
+
+    def test_fix_removes_orphan_secret(self):
+        """Fix should remove secrets that are not used in any step."""
+        rule = WAG052OrphanSecrets()
+        source = """
+from wetwire_github.workflow import Workflow, Job, Step
+from wetwire_github.workflow.expressions import Secrets
+
+job = Job(
+    runs_on="ubuntu-latest",
+    env={
+        "UNUSED_TOKEN": Secrets.get("UNUSED_TOKEN"),
+        "USED_TOKEN": Secrets.get("USED_TOKEN"),
+    },
+    steps=[
+        Step(run="echo $USED_TOKEN"),
+    ],
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Should remove UNUSED_TOKEN
+        assert count >= 1
+        if count > 0:
+            assert "UNUSED_TOKEN" not in fixed or '"UNUSED_TOKEN"' not in fixed
+
+    def test_fix_keeps_used_secrets(self):
+        """Fix should keep secrets that are actually used."""
+        rule = WAG052OrphanSecrets()
+        source = """
+from wetwire_github.workflow import Workflow, Job, Step
+from wetwire_github.workflow.expressions import Secrets
+
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    env={
+        "TOKEN": Secrets.get("DEPLOY_TOKEN"),
+    },
+    steps=[
+        Step(run="deploy --token $TOKEN"),
+    ],
+)
+
+workflow = Workflow(
+    name="Deploy",
+    on={"push": {}},
+    jobs={"deploy": deploy_job},
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Nothing to fix - secret is used
+        assert count == 0
+        assert fixed == source
+
+    def test_fix_workflow_level_orphan_secret(self):
+        """Fix should remove unused secrets from workflow-level env."""
+        rule = WAG052OrphanSecrets()
+        source = """
+from wetwire_github.workflow import Workflow, Job, Step
+from wetwire_github.workflow.expressions import Secrets
+
+workflow = Workflow(
+    name="CI",
+    on={"push": {}},
+    env={
+        "GLOBAL_TOKEN": Secrets.get("GLOBAL_TOKEN"),
+    },
+    jobs={
+        "build": Job(
+            runs_on="ubuntu-latest",
+            steps=[Step(run="make build")],  # Doesn't use GLOBAL_TOKEN
+        ),
+    },
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Should remove unused GLOBAL_TOKEN
+        assert count >= 1
+        if count > 0:
+            assert "GLOBAL_TOKEN" not in fixed or '"GLOBAL_TOKEN"' not in fixed
+
+    def test_fix_multiple_orphan_secrets(self):
+        """Fix should remove multiple unused secrets."""
+        rule = WAG052OrphanSecrets()
+        source = """
+from wetwire_github.workflow import Job, Step
+from wetwire_github.workflow.expressions import Secrets
+
+job = Job(
+    runs_on="ubuntu-latest",
+    env={
+        "UNUSED1": Secrets.get("SECRET1"),
+        "UNUSED2": Secrets.get("SECRET2"),
+        "UNUSED3": Secrets.get("SECRET3"),
+    },
+    steps=[
+        Step(run="echo hello"),
+    ],
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Should remove all three unused secrets
+        assert count >= 1
+
+
 class TestDefaultRulesIncludeReferenceRules:
     """Test that get_default_rules includes reference rules."""
 

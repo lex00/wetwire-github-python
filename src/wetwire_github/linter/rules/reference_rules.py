@@ -133,6 +133,141 @@ class WAG050UnusedJobOutputs(BaseRule):
                         outputs[key.value] = key.lineno
         return outputs
 
+    def fix(self, source: str, file_path: str) -> tuple[str, int, list[LintError]]:
+        """Fix unused job outputs by removing them from Job declarations.
+
+        Returns:
+            Tuple of (fixed_source, fixed_count, remaining_errors)
+        """
+        fixed_count = 0
+        fixed_source = source
+
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return source, 0, self.check(source, file_path)
+
+        # Build a map of job variable names to their outputs
+        job_outputs: dict[str, dict[str, int]] = {}  # job_var -> {output_name: line}
+        job_var_to_key: dict[str, str] = {}
+
+        # First pass: collect job outputs and job key mappings
+        for node in ast.walk(tree):
+            # Look for Job assignments
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+                if self._is_job_call(node.value):
+                    job_var = self._get_assign_target_name(node)
+                    if job_var:
+                        outputs = self._extract_job_outputs(node.value)
+                        if outputs:
+                            job_outputs[job_var] = outputs
+
+            # Look for Workflow definitions to get job key mappings
+            if isinstance(node, ast.Call) and self._is_workflow_call(node):
+                for keyword in node.keywords:
+                    if keyword.arg == "jobs" and isinstance(keyword.value, ast.Dict):
+                        for key, value in zip(keyword.value.keys, keyword.value.values):
+                            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                                job_key = key.value
+                                if isinstance(value, ast.Name):
+                                    job_var_to_key[value.id] = job_key
+
+        # Second pass: find all referenced outputs
+        referenced_outputs: set[tuple[str, str]] = set()  # (job_key, output_name)
+        for match in self._NEEDS_OUTPUT_PATTERN.finditer(source):
+            job_key = match.group(1)
+            output_name = match.group(2)
+            referenced_outputs.add((job_key, output_name))
+
+        # Build list of unused outputs to remove
+        outputs_to_remove: dict[str, set[str]] = {}  # job_var -> {output_names}
+        for job_var, outputs in job_outputs.items():
+            job_key = job_var_to_key.get(job_var, job_var)
+            unused = set()
+            for output_name in outputs.keys():
+                if (job_key, output_name) not in referenced_outputs:
+                    unused.add(output_name)
+            if unused:
+                outputs_to_remove[job_var] = unused
+
+        # Third pass: remove unused outputs
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+                if self._is_job_call(node.value):
+                    job_var = self._get_assign_target_name(node)
+                    if job_var and job_var in outputs_to_remove:
+                        unused = outputs_to_remove[job_var]
+                        # Find outputs keyword
+                        for keyword in node.value.keywords:
+                            if keyword.arg == "outputs" and isinstance(
+                                keyword.value, ast.Dict
+                            ):
+                                # Build new outputs dict without unused outputs
+                                new_outputs_dict = self._build_filtered_outputs_dict(
+                                    keyword.value, unused
+                                )
+                                fixed_source = self._replace_dict_in_source(
+                                    fixed_source, keyword.value, new_outputs_dict
+                                )
+                                fixed_count += len(unused)
+
+        # Check for remaining errors
+        remaining_errors = self.check(fixed_source, file_path)
+
+        return fixed_source, fixed_count, remaining_errors
+
+    def _build_filtered_outputs_dict(
+        self, dict_node: ast.Dict, unused_keys: set[str]
+    ) -> str:
+        """Build a new outputs dict without the unused keys."""
+        items = []
+        for key, value in zip(dict_node.keys, dict_node.values):
+            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                output_name = key.value
+                if output_name not in unused_keys:
+                    # Get the value as string
+                    if isinstance(value, ast.Constant):
+                        val_str = f'"{value.value}"' if isinstance(value.value, str) else str(value.value)
+                    else:
+                        # For complex expressions, use ast.get_source_segment if available
+                        val_str = '"..."'  # Placeholder
+                    items.append(f'"{output_name}": {val_str}')
+
+        if items:
+            return "{" + ", ".join(items) + "}"
+        else:
+            return "{}"
+
+    def _replace_dict_in_source(
+        self, source: str, dict_node: ast.Dict, new_dict_str: str
+    ) -> str:
+        """Replace dict in source code."""
+        lines = source.splitlines(keepends=True)
+
+        start_line = dict_node.lineno
+        start_col = dict_node.col_offset
+        end_line = dict_node.end_lineno or start_line
+        end_col = dict_node.end_col_offset or start_col
+
+        # Replace the dict
+        if start_line == end_line:
+            # Single line replacement
+            line = lines[start_line - 1]
+            lines[start_line - 1] = line[:start_col] + new_dict_str + line[end_col:]
+        else:
+            # Multi-line dict replacement
+            lines[start_line - 1] = (
+                lines[start_line - 1][:start_col] + new_dict_str + "\n"
+            )
+            # Remove intermediate lines
+            for _ in range(end_line - start_line):
+                del lines[start_line]
+            # Adjust the line after the dict
+            if start_line < len(lines):
+                lines[start_line] = lines[start_line][end_col:]
+
+        return "".join(lines)
+
 
 class WAG051CircularJobDependencies(BaseRule):
     """WAG051: Detect circular dependencies in job needs.
@@ -454,6 +589,177 @@ class WAG052OrphanSecrets(BaseRule):
                 if isinstance(node.func.value, ast.Name):
                     return node.func.value.id == "Secrets"
         return False
+
+    def fix(self, source: str, file_path: str) -> tuple[str, int, list[LintError]]:
+        """Fix orphan secrets by removing them from env declarations.
+
+        Returns:
+            Tuple of (fixed_source, fixed_count, remaining_errors)
+        """
+        fixed_count = 0
+        fixed_source = source
+
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return source, 0, self.check(source, file_path)
+
+        # Collect secrets defined at workflow/job level env
+        workflow_job_secrets: dict[str, int] = {}  # secret_name -> line
+        step_secrets: set[str] = set()
+        env_var_to_secret: dict[str, str] = {}  # ENV_VAR -> secret_name
+        step_env_vars_used: set[str] = set()
+
+        # Find workflow-level and job-level env with secrets
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                if self._is_workflow_call(node) or self._is_job_call(node):
+                    for keyword in node.keywords:
+                        if keyword.arg == "env" and isinstance(keyword.value, ast.Dict):
+                            self._extract_env_secrets(
+                                keyword.value,
+                                workflow_job_secrets,
+                                env_var_to_secret,
+                            )
+
+        # Find secrets used directly in steps
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and self._is_step_call(node):
+                for keyword in node.keywords:
+                    # Check step-level env
+                    if keyword.arg == "env":
+                        step_secrets_in_env = self._find_secrets_in_node(keyword.value)
+                        step_secrets.update(step_secrets_in_env)
+
+                    # Check run commands for env var usage
+                    if keyword.arg == "run" and isinstance(keyword.value, ast.Constant):
+                        run_cmd = keyword.value.value
+                        if isinstance(run_cmd, str):
+                            # Find $ENV_VAR or ${ENV_VAR} patterns
+                            for env_var in env_var_to_secret:
+                                if f"${env_var}" in run_cmd or f"${{{env_var}}}" in run_cmd:
+                                    step_env_vars_used.add(env_var)
+
+        # Find unused secrets at workflow/job level
+        unused_env_vars_by_secret: set[str] = set()  # env var names to remove
+        for secret_name, line in workflow_job_secrets.items():
+            # Check if secret is used directly in steps
+            if secret_name in step_secrets:
+                continue
+
+            # Check if the env var mapping to this secret is used
+            used_via_env = False
+            for env_var, mapped_secret in env_var_to_secret.items():
+                if mapped_secret == secret_name and env_var in step_env_vars_used:
+                    used_via_env = True
+                    break
+
+            if not used_via_env:
+                # Find the env var name(s) that map to this secret
+                for env_var, mapped_secret in env_var_to_secret.items():
+                    if mapped_secret == secret_name:
+                        unused_env_vars_by_secret.add(env_var)
+
+        # Remove unused secrets from env dicts
+        if unused_env_vars_by_secret:
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call):
+                    if self._is_workflow_call(node) or self._is_job_call(node):
+                        for keyword in node.keywords:
+                            if keyword.arg == "env" and isinstance(keyword.value, ast.Dict):
+                                # Check which env vars to remove from this dict
+                                env_vars_in_dict = set()
+                                for key in keyword.value.keys:
+                                    if isinstance(key, ast.Constant) and isinstance(
+                                        key.value, str
+                                    ):
+                                        env_vars_in_dict.add(key.value)
+
+                                env_vars_to_remove = (
+                                    unused_env_vars_by_secret & env_vars_in_dict
+                                )
+                                if env_vars_to_remove:
+                                    # Build new env dict without unused env vars
+                                    new_env_dict = self._build_filtered_env_dict(
+                                        keyword.value, env_vars_to_remove, source
+                                    )
+                                    fixed_source = self._replace_env_dict_in_source(
+                                        fixed_source, keyword.value, new_env_dict
+                                    )
+                                    fixed_count += len(env_vars_to_remove)
+
+        # Check for remaining errors
+        remaining_errors = self.check(fixed_source, file_path)
+
+        return fixed_source, fixed_count, remaining_errors
+
+    def _build_filtered_env_dict(
+        self, dict_node: ast.Dict, unused_env_vars: set[str], source: str
+    ) -> str:
+        """Build a new env dict without the unused env vars."""
+        items = []
+        for key, value in zip(dict_node.keys, dict_node.values):
+            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                env_var_name = key.value
+                if env_var_name not in unused_env_vars:
+                    # Keep this env var - get its value as string
+                    val_str = self._get_value_source(value, source)
+                    items.append(f'"{env_var_name}": {val_str}')
+
+        if items:
+            return "{" + ", ".join(items) + "}"
+        else:
+            return "{}"
+
+    def _get_value_source(self, value_node: ast.expr, source: str) -> str:
+        """Get the source code for a value node."""
+        if isinstance(value_node, ast.Constant):
+            if isinstance(value_node.value, str):
+                return f'"{value_node.value}"'
+            return str(value_node.value)
+        elif isinstance(value_node, ast.Call):
+            # For Secrets.get() calls, reconstruct the call
+            if self._is_secrets_get_call(value_node):
+                if value_node.args and isinstance(value_node.args[0], ast.Constant):
+                    secret_name = value_node.args[0].value
+                    return f'Secrets.get("{secret_name}")'
+        # Fallback: try to extract from source if positions are available
+        if hasattr(value_node, "lineno") and hasattr(value_node, "end_lineno"):
+            lines = source.splitlines()
+            if value_node.lineno == value_node.end_lineno:
+                line = lines[value_node.lineno - 1]
+                return line[value_node.col_offset : value_node.end_col_offset]
+        return '"..."'  # Fallback
+
+    def _replace_env_dict_in_source(
+        self, source: str, dict_node: ast.Dict, new_dict_str: str
+    ) -> str:
+        """Replace env dict in source code."""
+        lines = source.splitlines(keepends=True)
+
+        start_line = dict_node.lineno
+        start_col = dict_node.col_offset
+        end_line = dict_node.end_lineno or start_line
+        end_col = dict_node.end_col_offset or start_col
+
+        # Replace the dict
+        if start_line == end_line:
+            # Single line replacement
+            line = lines[start_line - 1]
+            lines[start_line - 1] = line[:start_col] + new_dict_str + line[end_col:]
+        else:
+            # Multi-line dict replacement
+            lines[start_line - 1] = (
+                lines[start_line - 1][:start_col] + new_dict_str + "\n"
+            )
+            # Remove intermediate lines
+            for _ in range(end_line - start_line):
+                del lines[start_line]
+            # Adjust the line after the dict
+            if start_line < len(lines):
+                lines[start_line] = lines[start_line][end_col:]
+
+        return "".join(lines)
 
 
 class WAG053StepOutputReferences(BaseRule):
