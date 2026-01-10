@@ -14,6 +14,11 @@ All notable changes to this project will be documented in this file.
   - Organized by category: action, expression, organization, validation, pattern
   - Backwards compatible with existing imports
   - Easier to navigate, test, and extend
+- Loader module (`wetwire_github.loader`)
+  - `setup_workflow_namespace()` - Injects core types into a namespace
+  - `setup_actions()` - Injects action wrappers into a namespace
+  - `setup_all()` - Injects all types and actions
+  - `get_all_exports()` - Returns dict of all exportable items
 - Kiro CLI integration module (`wetwire_github.kiro`)
   - `install_kiro_configs()` - Installs agent and MCP configs for Kiro CLI
   - `launch_kiro()` - Launches Kiro CLI with wetwire-github-runner agent
