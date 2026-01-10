@@ -4,13 +4,22 @@ Uses importlib to load modules and extract Workflow/Job instances.
 """
 
 import importlib.util
+import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .exceptions import (
+    WorkflowImportError,
+    WorkflowRuntimeError,
+    WorkflowSyntaxError,
+)
+
 if TYPE_CHECKING:
     from wetwire_github.workflow import Job, Workflow
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -101,20 +110,105 @@ def _load_module_from_file(file_path: str, module_name: str) -> Any:
 
     Returns:
         Loaded module object
+
+    Raises:
+        WorkflowSyntaxError: If the file has Python syntax errors
+        WorkflowImportError: If the file cannot import required modules
+        WorkflowRuntimeError: If the file raises an error during execution
     """
+    # First, check for syntax errors by trying to compile the source
+    try:
+        with open(file_path, encoding="utf-8") as f:
+            source = f.read()
+        compile(source, file_path, "exec")
+    except SyntaxError as e:
+        logger.error(
+            "Syntax error in workflow file",
+            extra={
+                "file_path": file_path,
+                "module_name": module_name,
+                "line_number": e.lineno,
+                "offset": e.offset,
+                "error_message": str(e.msg),
+            },
+        )
+        raise WorkflowSyntaxError(
+            str(e.msg) if e.msg else "invalid syntax",
+            file_path=file_path,
+            module_name=module_name,
+            line_number=e.lineno,
+            offset=e.offset,
+        ) from e
+
     spec = importlib.util.spec_from_file_location(module_name, file_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load module from {file_path}")
+        logger.error(
+            "Cannot create module spec",
+            extra={"file_path": file_path, "module_name": module_name},
+        )
+        raise WorkflowImportError(
+            f"Cannot load module from {file_path}",
+            file_path=file_path,
+            module_name=module_name,
+        )
 
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
 
     try:
         spec.loader.exec_module(module)
-    except Exception:
+    except ModuleNotFoundError as e:
         # Clean up on failure
         sys.modules.pop(module_name, None)
-        raise
+        logger.error(
+            "Module import error in workflow file",
+            extra={
+                "file_path": file_path,
+                "module_name": module_name,
+                "missing_module": e.name,
+                "error_message": str(e),
+            },
+        )
+        raise WorkflowImportError(
+            str(e),
+            file_path=file_path,
+            module_name=module_name,
+            missing_module=e.name,
+        ) from e
+    except ImportError as e:
+        # Clean up on failure
+        sys.modules.pop(module_name, None)
+        logger.error(
+            "Import error in workflow file",
+            extra={
+                "file_path": file_path,
+                "module_name": module_name,
+                "error_message": str(e),
+            },
+        )
+        raise WorkflowImportError(
+            str(e),
+            file_path=file_path,
+            module_name=module_name,
+        ) from e
+    except Exception as e:
+        # Clean up on failure
+        sys.modules.pop(module_name, None)
+        logger.error(
+            "Runtime error in workflow file",
+            extra={
+                "file_path": file_path,
+                "module_name": module_name,
+                "exception_type": type(e).__name__,
+                "error_message": str(e),
+            },
+        )
+        raise WorkflowRuntimeError(
+            str(e),
+            file_path=file_path,
+            module_name=module_name,
+            original_exception=e,
+        ) from e
 
     return module
 
@@ -127,6 +221,11 @@ def extract_workflows(file_path: str) -> list[ExtractedWorkflow]:
 
     Returns:
         List of extracted workflows
+
+    Raises:
+        WorkflowSyntaxError: If the file has Python syntax errors
+        WorkflowImportError: If the file cannot import required modules
+        WorkflowRuntimeError: If the file raises an error during execution
     """
     from wetwire_github.workflow import Workflow
 
@@ -136,10 +235,8 @@ def extract_workflows(file_path: str) -> list[ExtractedWorkflow]:
     else:
         module_path = Path(file_path).stem
 
-    try:
-        module = _load_module_from_file(file_path, module_path)
-    except Exception:
-        return []
+    # Let exceptions propagate for better error handling
+    module = _load_module_from_file(file_path, module_path)
 
     workflows = []
     for name in dir(module):
@@ -167,6 +264,11 @@ def extract_jobs(file_path: str) -> list[ExtractedJob]:
 
     Returns:
         List of extracted jobs
+
+    Raises:
+        WorkflowSyntaxError: If the file has Python syntax errors
+        WorkflowImportError: If the file cannot import required modules
+        WorkflowRuntimeError: If the file raises an error during execution
     """
     from wetwire_github.workflow import Job
 
@@ -176,10 +278,8 @@ def extract_jobs(file_path: str) -> list[ExtractedJob]:
     else:
         module_path = Path(file_path).stem
 
-    try:
-        module = _load_module_from_file(file_path, module_path)
-    except Exception:
-        return []
+    # Let exceptions propagate for better error handling
+    module = _load_module_from_file(file_path, module_path)
 
     jobs = []
     for name in dir(module):

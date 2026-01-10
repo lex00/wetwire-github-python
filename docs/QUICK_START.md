@@ -423,3 +423,9 @@ See [MCP Server Documentation](MCP_SERVER.md) for full configuration options.
 - Set up [MCP Server](MCP_SERVER.md) for AI agent integration
 - Set up [Kiro CLI Integration](GITHUB-KIRO-CLI.md) for enterprise AI-assisted design
 - Read the [Wetwire Specification](https://github.com/lex00/wetwire/blob/main/docs/WETWIRE_SPEC.md)
+
+---
+
+## Having Issues?
+
+See [Troubleshooting](TROUBLESHOOTING.md) for solutions to common problems.
