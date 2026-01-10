@@ -21,10 +21,12 @@ from .expressions import (
     fromJson,
     hashFiles,
     join,
+    lower,
     startsWith,
     success,
     tag,
     toJson,
+    upper,
 )
 from .expressions import (
     Matrix as MatrixContext,
@@ -180,6 +182,8 @@ __all__ = [
     "format",
     "hashFiles",
     "join",
+    "lower",
     "toJson",
     "fromJson",
+    "upper",
 ]

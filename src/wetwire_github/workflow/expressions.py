@@ -369,3 +369,41 @@ def fromJson(value: str | Expression) -> Expression:  # noqa: N802
     """
     value_str = str(value).strip("${{ }}").strip() if isinstance(value, Expression) else value
     return Expression(f"fromJSON({value_str})")
+
+
+def lower(text: str | Expression) -> Expression:  # noqa: N802
+    """Convert string to lowercase.
+
+    Args:
+        text: The text to convert (string or expression)
+
+    Returns:
+        Expression containing lowercased string
+
+    Example:
+        >>> lower("HELLO")
+        ${{ lower('HELLO') }}
+        >>> lower(GitHub.ref)
+        ${{ lower(github.ref) }}
+    """
+    text_str = str(text).strip("${{ }}").strip() if isinstance(text, Expression) else f"'{text}'"
+    return Expression(f"lower({text_str})")
+
+
+def upper(text: str | Expression) -> Expression:  # noqa: N802
+    """Convert string to uppercase.
+
+    Args:
+        text: The text to convert (string or expression)
+
+    Returns:
+        Expression containing uppercased string
+
+    Example:
+        >>> upper("hello")
+        ${{ upper('hello') }}
+        >>> upper(GitHub.ref)
+        ${{ upper(github.ref) }}
+    """
+    text_str = str(text).strip("${{ }}").strip() if isinstance(text, Expression) else f"'{text}'"
+    return Expression(f"upper({text_str})")

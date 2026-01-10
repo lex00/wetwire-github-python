@@ -13,6 +13,7 @@ from .docker_build_push import docker_build_push
 from .docker_login import docker_login
 from .docker_metadata import docker_metadata
 from .download_artifact import download_artifact
+from .first_interaction import first_interaction
 from .gh_pages import gh_pages
 from .gh_release import gh_release
 from .github_script import github_script
@@ -24,6 +25,7 @@ from .setup_java import setup_java
 from .setup_node import setup_node
 from .setup_python import setup_python
 from .setup_ruby import setup_ruby
+from .stale import stale
 from .upload_artifact import upload_artifact
 from .upload_pages_artifact import upload_pages_artifact
 from .upload_release_asset import upload_release_asset
@@ -42,6 +44,7 @@ __all__ = [
     "docker_login",
     "docker_metadata",
     "download_artifact",
+    "first_interaction",
     "gh_pages",
     "gh_release",
     "github_script",
@@ -53,6 +56,7 @@ __all__ = [
     "setup_node",
     "setup_python",
     "setup_ruby",
+    "stale",
     "upload_artifact",
     "upload_pages_artifact",
     "upload_release_asset",
