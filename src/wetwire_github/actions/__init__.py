@@ -13,6 +13,7 @@ from .docker_build_push import docker_build_push
 from .docker_login import docker_login
 from .docker_metadata import docker_metadata
 from .download_artifact import download_artifact
+from .gh_pages import gh_pages
 from .gh_release import gh_release
 from .github_script import github_script
 from .labeler import labeler
@@ -25,6 +26,7 @@ from .setup_python import setup_python
 from .setup_ruby import setup_ruby
 from .upload_artifact import upload_artifact
 from .upload_pages_artifact import upload_pages_artifact
+from .upload_release_asset import upload_release_asset
 
 __all__ = [
     "attest_build_provenance",
@@ -40,6 +42,7 @@ __all__ = [
     "docker_login",
     "docker_metadata",
     "download_artifact",
+    "gh_pages",
     "gh_release",
     "github_script",
     "labeler",
@@ -52,4 +55,5 @@ __all__ = [
     "setup_ruby",
     "upload_artifact",
     "upload_pages_artifact",
+    "upload_release_asset",
 ]
