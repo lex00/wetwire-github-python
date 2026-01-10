@@ -8,17 +8,17 @@ class TestLintRulesDocumentation:
     """Verify the LINT_RULES.md documentation is complete."""
 
     def test_documentation_header_reflects_all_rules(self) -> None:
-        """Documentation should state it has 20 rules (WAG001-WAG016, WAG050-WAG053)."""
+        """Documentation should state it has 28 rules (WAG001-WAG022, WAG050-WAG053)."""
         docs_path = Path(__file__).parent.parent / "docs" / "LINT_RULES.md"
         content = docs_path.read_text()
 
-        # Check that the intro mentions 20 rules
-        assert "20 rules (WAG001-WAG016, WAG050-WAG053)" in content, (
-            "Documentation header should mention '20 rules (WAG001-WAG016, WAG050-WAG053)'"
+        # Check that the intro mentions 28 rules
+        assert "28 rules (WAG001-WAG022, WAG050-WAG053)" in content, (
+            "Documentation header should mention '28 rules (WAG001-WAG022, WAG050-WAG053)'"
         )
 
     def test_quick_reference_table_has_all_rules(self) -> None:
-        """Quick reference table should list all 20 rules."""
+        """Quick reference table should list all 28 rules."""
         docs_path = Path(__file__).parent.parent / "docs" / "LINT_RULES.md"
         content = docs_path.read_text()
 
@@ -27,9 +27,10 @@ class TestLintRulesDocumentation:
         matches = re.findall(table_pattern, content)
         rule_numbers = sorted([int(m) for m in matches])
 
-        expected = list(range(1, 17)) + [50, 51, 52, 53]  # WAG001-WAG016 + WAG050-WAG053
+        # WAG001-WAG022 + WAG050-WAG053 = 28 rules total
+        expected = list(range(1, 23)) + [50, 51, 52, 53]
         assert rule_numbers == expected, (
-            f"Quick reference table should have all rules WAG001-WAG016 + WAG050-WAG053. "
+            f"Quick reference table should have all rules WAG001-WAG022 + WAG050-WAG053. "
             f"Found: {rule_numbers}"
         )
 
@@ -138,7 +139,8 @@ class TestLintRulesDocumentation:
         docs_path = Path(__file__).parent.parent / "docs" / "LINT_RULES.md"
         content = docs_path.read_text()
 
-        for rule_num in range(1, 17):
+        # WAG001-WAG022
+        for rule_num in range(1, 23):
             rule_id = f"WAG{rule_num:03d}"
             section = self._extract_rule_section(content, rule_id)
             if section:  # If the rule has a section
