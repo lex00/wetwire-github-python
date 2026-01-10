@@ -131,10 +131,10 @@ This document tracks completed and planned features for wetwire-github.
 
 - [ ] **GitHub App Integration** - Workflow automation via GitHub App
 - [x] **Branch Protection Rules** - Typed configuration for branch protection (PR #143)
-- [ ] **Repository Settings** - Typed configuration for repository settings
-- [ ] **Secret Scanning Configuration** - Custom patterns for secret scanning
+- [x] **Repository Settings** - Typed configuration for repository settings (PR #147)
+- [x] **Secret Scanning Configuration** - Custom patterns for secret scanning (PR #147)
 - [x] **Advanced Caching Strategies** - Smart cache key generation (PR #143)
-- [ ] **Workflow Templates** - Organization-level workflow templates
+- [x] **Workflow Templates** - Organization-level workflow templates (PR #147)
 - [x] **Self-Hosted Runners** - Support for self-hosted runner configurations (PR #143)
 
 ### Long-Term
