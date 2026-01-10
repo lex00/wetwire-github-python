@@ -1,0 +1,9 @@
+{
+  "name": "wetwire-github-runner",
+  "description": "GitHub Actions workflow generator using wetwire-github",
+  "allowedTools": ["fs_read", "fs_write", "bash", "mcp:wetwire-github-mcp"],
+  "context": {
+    "patterns": "wetwire-github Syntax Principles:\n\n1. WORKFLOW DECLARATION - Workflows are Python dataclasses:\n   from wetwire_github.workflow import Workflow, Job, Step\n\n2. TYPED ACTION WRAPPERS - Use pre-generated wrappers:\n   from wetwire_github.actions import checkout, setup_python\n\n3. EXPRESSION CONTEXTS - Use typed builders:\n   from wetwire_github.workflow.expressions import Secrets, Matrix, GitHub\n\nKey Lint Rules (WAG001-WAG008):\n- WAG001: Use typed action wrappers instead of raw strings\n- WAG002: Use condition builders instead of raw expressions\n- WAG003: Use secrets context for secrets access\n- WAG004: Use matrix builder for matrix configurations",
+    "workflow": "Design Workflow:\n1. EXPLORE - Understand requirements and clarify with user\n2. PLAN - Design workflow architecture\n3. IMPLEMENT - Write Python declarations using typed classes\n4. LINT - Run wetwire_lint to check code patterns\n5. BUILD - Run wetwire_build to generate GitHub Actions YAML\n6. ITERATE - Fix any issues and rebuild"
+  }
+}
