@@ -35,3 +35,20 @@ class PolicyEngine:
             List of policy results, one for each policy
         """
         return [policy.evaluate(workflow) for policy in self.policies]
+
+    def fix_all(self, workflow: Workflow) -> Workflow:
+        """Apply all fixable policies to make workflow compliant.
+
+        Iterates through all policies and applies their fix methods.
+        Policies without auto-fix capability will return the workflow unchanged.
+
+        Args:
+            workflow: The workflow to fix
+
+        Returns:
+            A new Workflow with all fixable policies applied
+        """
+        result = workflow
+        for policy in self.policies:
+            result = policy.fix(result)
+        return result

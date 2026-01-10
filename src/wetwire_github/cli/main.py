@@ -129,6 +129,54 @@ def create_parser() -> argparse.ArgumentParser:
         help="Python package to lint",
     )
 
+    # policy command
+    policy_parser = subparsers.add_parser(
+        "policy",
+        help="Run policy checks against workflows",
+        description="Run organization-level policy checks against discovered workflows.",
+    )
+    policy_parser.add_argument(
+        "--format",
+        "-f",
+        choices=["text", "json", "table"],
+        default="text",
+        help="Output format (default: text)",
+    )
+    policy_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable discovery caching",
+    )
+    policy_parser.add_argument(
+        "package",
+        nargs="?",
+        help="Python package to check policies against",
+    )
+
+    # cost command
+    cost_parser = subparsers.add_parser(
+        "cost",
+        help="Analyze workflow execution costs",
+        description="Estimate GitHub Actions execution costs for discovered workflows.",
+    )
+    cost_parser.add_argument(
+        "--format",
+        "-f",
+        choices=["text", "json", "table"],
+        default="text",
+        help="Output format (default: text)",
+    )
+    cost_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable discovery caching",
+    )
+    cost_parser.add_argument(
+        "package",
+        nargs="?",
+        help="Python package to analyze costs for",
+    )
+
     # import command
     import_parser = subparsers.add_parser(
         "import",
@@ -431,6 +479,44 @@ def cmd_lint(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def cmd_policy(args: argparse.Namespace) -> int:
+    """Execute policy command."""
+    from wetwire_github.cli.policy_cmd import run_policies
+
+    # Use current directory if no package specified
+    package_path = args.package or "."
+
+    exit_code, output = run_policies(
+        package_path=package_path,
+        output_format=args.format,
+        no_cache=args.no_cache,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
+
+
+def cmd_cost(args: argparse.Namespace) -> int:
+    """Execute cost command."""
+    from wetwire_github.cli.cost_cmd import analyze_costs
+
+    # Use current directory if no package specified
+    package_path = args.package or "."
+
+    exit_code, output = analyze_costs(
+        package_path=package_path,
+        output_format=args.format,
+        no_cache=args.no_cache,
+    )
+
+    if output:
+        print(output)
+
+    return exit_code
+
+
 def cmd_import(args: argparse.Namespace) -> int:
     """Execute import command."""
     from wetwire_github.cli.import_cmd import import_workflows
@@ -604,6 +690,8 @@ def main(argv: list[str] | None = None) -> int:
         "validate": cmd_validate,
         "list": cmd_list,
         "lint": cmd_lint,
+        "policy": cmd_policy,
+        "cost": cmd_cost,
         "import": cmd_import,
         "init": cmd_init,
         "design": cmd_design,

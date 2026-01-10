@@ -19,6 +19,9 @@ class PolicyResult:
     message: str = ""
     """Optional message with details about the result."""
 
+    can_fix: bool = False
+    """Whether this policy violation can be automatically fixed."""
+
 
 class Policy(ABC):
     """Base class for workflow policies.
@@ -50,3 +53,17 @@ class Policy(ABC):
             PolicyResult with pass/fail status and optional message
         """
         ...
+
+    def fix(self, workflow: Workflow) -> Workflow:
+        """Apply fix to make workflow compliant.
+
+        Override in subclasses to provide automatic fixes for policy violations.
+        The default implementation returns the workflow unchanged.
+
+        Args:
+            workflow: The workflow to fix
+
+        Returns:
+            A new Workflow with the fix applied, or the original if no fix possible
+        """
+        return workflow

@@ -1,8 +1,9 @@
 """Built-in policy implementations for workflow validation."""
 
 import re
+from dataclasses import replace
 
-from wetwire_github.workflow import Workflow
+from wetwire_github.workflow import Job, Step, Workflow
 
 from .types import Policy, PolicyResult
 
@@ -52,6 +53,7 @@ class RequireCheckout(Policy):
                 policy_name=self.name,
                 passed=False,
                 message=f"Jobs missing checkout action: {', '.join(missing_checkout)}",
+                can_fix=True,
             )
 
         return PolicyResult(
@@ -59,6 +61,32 @@ class RequireCheckout(Policy):
             passed=True,
             message="All jobs use checkout action",
         )
+
+    def fix(self, workflow: Workflow) -> Workflow:
+        """Add checkout step as first step in jobs missing it.
+
+        Args:
+            workflow: The workflow to fix
+
+        Returns:
+            A new Workflow with checkout steps added where needed
+        """
+        if not workflow.jobs:
+            return workflow
+
+        new_jobs: dict[str, Job] = {}
+        for job_id, job in workflow.jobs.items():
+            has_checkout = any(
+                step.uses and "checkout" in step.uses for step in job.steps
+            )
+            if not has_checkout:
+                checkout_step = Step(uses="actions/checkout@v4")
+                new_steps = [checkout_step, *job.steps]
+                new_jobs[job_id] = replace(job, steps=new_steps)
+            else:
+                new_jobs[job_id] = job
+
+        return replace(workflow, jobs=new_jobs)
 
 
 class RequireTimeouts(Policy):
@@ -103,6 +131,7 @@ class RequireTimeouts(Policy):
                 policy_name=self.name,
                 passed=False,
                 message=f"Jobs missing timeout_minutes: {', '.join(missing_timeout)}",
+                can_fix=True,
             )
 
         return PolicyResult(
@@ -110,6 +139,27 @@ class RequireTimeouts(Policy):
             passed=True,
             message="All jobs have timeout_minutes set",
         )
+
+    def fix(self, workflow: Workflow) -> Workflow:
+        """Add timeout_minutes=60 to jobs without it.
+
+        Args:
+            workflow: The workflow to fix
+
+        Returns:
+            A new Workflow with timeout_minutes added where needed
+        """
+        if not workflow.jobs:
+            return workflow
+
+        new_jobs: dict[str, Job] = {}
+        for job_id, job in workflow.jobs.items():
+            if job.timeout_minutes is None:
+                new_jobs[job_id] = replace(job, timeout_minutes=60)
+            else:
+                new_jobs[job_id] = job
+
+        return replace(workflow, jobs=new_jobs)
 
 
 class NoHardcodedSecrets(Policy):
@@ -281,6 +331,7 @@ class PinActions(Policy):
                 policy_name=self.name,
                 passed=False,
                 message=f"Actions not properly pinned: {'; '.join(unpinned)}",
+                can_fix=True,
             )
 
         return PolicyResult(
@@ -288,6 +339,44 @@ class PinActions(Policy):
             passed=True,
             message="All actions properly pinned",
         )
+
+    def fix(self, workflow: Workflow) -> Workflow:
+        """Pin unpinned actions to @v4 (default major version).
+
+        Args:
+            workflow: The workflow to fix
+
+        Returns:
+            A new Workflow with unpinned actions pinned to @v4
+        """
+        if not workflow.jobs:
+            return workflow
+
+        new_jobs: dict[str, Job] = {}
+        for job_id, job in workflow.jobs.items():
+            new_steps = []
+            for step in job.steps:
+                if step.uses:
+                    # Check if action needs pinning
+                    if "@" not in step.uses:
+                        # Unpinned - add @v4
+                        new_uses = f"{step.uses}@v4"
+                        new_steps.append(replace(step, uses=new_uses))
+                    elif self.SHA_PATTERN.search(
+                        step.uses
+                    ) or self.VERSION_PATTERN.search(step.uses):
+                        # Already properly pinned
+                        new_steps.append(step)
+                    else:
+                        # Pinned to branch - replace with @v4
+                        action_name = step.uses.split("@")[0]
+                        new_uses = f"{action_name}@v4"
+                        new_steps.append(replace(step, uses=new_uses))
+                else:
+                    new_steps.append(step)
+            new_jobs[job_id] = replace(job, steps=new_steps)
+
+        return replace(workflow, jobs=new_jobs)
 
 
 class LimitJobCount(Policy):
