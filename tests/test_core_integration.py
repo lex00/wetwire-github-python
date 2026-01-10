@@ -333,6 +333,30 @@ class TestPersonaTesting:
         persona_names = [p["name"] for p in personas]
         assert "senior-dev" in persona_names
 
+    def test_expert_persona_exists(self):
+        """Expert persona is available (spec-standard)."""
+        from wetwire_github.core_integration import get_available_personas
+
+        personas = get_available_personas()
+        persona_names = [p["name"] for p in personas]
+        assert "expert" in persona_names
+
+    def test_terse_persona_exists(self):
+        """Terse persona is available (spec-standard)."""
+        from wetwire_github.core_integration import get_available_personas
+
+        personas = get_available_personas()
+        persona_names = [p["name"] for p in personas]
+        assert "terse" in persona_names
+
+    def test_verbose_persona_exists(self):
+        """Verbose persona is available (spec-standard)."""
+        from wetwire_github.core_integration import get_available_personas
+
+        personas = get_available_personas()
+        persona_names = [p["name"] for p in personas]
+        assert "verbose" in persona_names
+
     def test_persona_has_required_fields(self):
         """Personas have required fields."""
         from wetwire_github.core_integration import get_available_personas

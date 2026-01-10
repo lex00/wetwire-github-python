@@ -442,13 +442,24 @@ wetwire-github test --all --workflow .github/workflows/ci.yml
 
 ### Available Personas
 
+The test command supports two categories of personas:
+
+**Domain Personas** (workflow quality focus):
+
 | Persona | Description |
 |---------|-------------|
-| `beginner` | Vague requirements, defers to suggestions |
-| `intermediate` | Mixed clarity, asks clarifying questions |
-| `expert` | Precise requirements, corrects mistakes |
-| `terse` | Minimal responses |
-| `verbose` | Over-explains, adds tangents |
+| `reviewer` | Code reviewer focused on maintainability and best practices |
+| `senior-dev` | Senior developer focused on reliability and performance |
+| `security` | Security engineer focused on supply chain and access control |
+| `beginner` | New developer learning GitHub Actions |
+
+**Spec-Standard Personas** (per WETWIRE_SPEC.md Section 7):
+
+| Persona | Description |
+|---------|-------------|
+| `expert` | Deep knowledge, precise requirements, minimal hand-holding |
+| `terse` | Minimal information, expects system to infer defaults |
+| `verbose` | Over-explains, buries requirements in prose |
 
 ---
 

@@ -89,6 +89,58 @@ class TestTestCommandFunction:
         assert "Unknown persona" in output
 
 
+class TestSpecStandardPersonas:
+    """Tests for spec-standard personas (expert, terse, verbose).
+
+    Per WETWIRE_SPEC.md Section 7, these personas test different user interaction styles.
+    """
+
+    def test_expert_persona_available(self):
+        """Test that expert persona is available."""
+        exit_code, output = run_persona_tests()
+
+        assert exit_code == 0
+        assert "expert" in output
+
+    def test_terse_persona_available(self):
+        """Test that terse persona is available."""
+        exit_code, output = run_persona_tests()
+
+        assert exit_code == 0
+        assert "terse" in output
+
+    def test_verbose_persona_available(self):
+        """Test that verbose persona is available."""
+        exit_code, output = run_persona_tests()
+
+        assert exit_code == 0
+        assert "verbose" in output
+
+    def test_expert_persona_info(self):
+        """Test that expert persona can be selected and shows info."""
+        exit_code, output = run_persona_tests(persona="expert")
+
+        assert exit_code == 0
+        assert "expert" in output.lower()
+        assert "criteria" in output.lower()
+
+    def test_terse_persona_info(self):
+        """Test that terse persona can be selected and shows info."""
+        exit_code, output = run_persona_tests(persona="terse")
+
+        assert exit_code == 0
+        assert "terse" in output.lower()
+        assert "criteria" in output.lower()
+
+    def test_verbose_persona_info(self):
+        """Test that verbose persona can be selected and shows info."""
+        exit_code, output = run_persona_tests(persona="verbose")
+
+        assert exit_code == 0
+        assert "verbose" in output.lower()
+        assert "criteria" in output.lower()
+
+
 class TestTestCommandWithWorkflow:
     """Tests for test command with workflow file."""
 
