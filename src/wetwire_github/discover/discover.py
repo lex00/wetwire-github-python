@@ -5,11 +5,23 @@ definitions without importing them.
 """
 
 import ast
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # Resource types we discover
 DISCOVERABLE_TYPES = {"Workflow", "Job"}
+
+
+@dataclass
+class DiscoveredReusableWorkflow:
+    """A discovered reusable workflow (with workflow_call trigger)."""
+
+    name: str
+    file_path: str
+    inputs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    outputs: dict[str, str] = field(default_factory=dict)
+    secrets: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -253,3 +265,137 @@ def validate_references(
                 pass  # We don't track undefined references at AST level
 
     return errors
+
+
+class ReusableWorkflowVisitor(ast.NodeVisitor):
+    """AST visitor that discovers reusable workflows (with workflow_call trigger)."""
+
+    def __init__(self, file_path: str) -> None:
+        self.file_path = file_path
+        self.reusable_workflows: list[DiscoveredReusableWorkflow] = []
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        """Check assignments for Workflow with workflow_call trigger."""
+        if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            self.generic_visit(node)
+            return
+
+        if not isinstance(node.value, ast.Call):
+            self.generic_visit(node)
+            return
+
+        func = node.value.func
+        is_workflow = False
+
+        if isinstance(func, ast.Name) and func.id == "Workflow":
+            is_workflow = True
+        elif isinstance(func, ast.Attribute) and func.attr == "Workflow":
+            is_workflow = True
+
+        if not is_workflow:
+            self.generic_visit(node)
+            return
+
+        # Check for workflow_call in triggers
+        workflow_name = ""
+        workflow_call_data: dict[str, Any] | None = None
+
+        for keyword in node.value.keywords:
+            if keyword.arg == "name" and isinstance(keyword.value, ast.Constant):
+                workflow_name = str(keyword.value.value)
+            elif keyword.arg == "on" and isinstance(keyword.value, ast.Call):
+                workflow_call_data = self._extract_workflow_call(keyword.value)
+
+        if workflow_call_data is not None:
+            self.reusable_workflows.append(
+                DiscoveredReusableWorkflow(
+                    name=workflow_name,
+                    file_path=self.file_path,
+                    inputs=workflow_call_data.get("inputs", {}),
+                    outputs=workflow_call_data.get("outputs", {}),
+                    secrets=workflow_call_data.get("secrets", []),
+                )
+            )
+
+        self.generic_visit(node)
+
+    def _extract_workflow_call(self, triggers_call: ast.Call) -> dict[str, Any] | None:
+        """Extract workflow_call configuration from Triggers call."""
+        for keyword in triggers_call.keywords:
+            if keyword.arg == "workflow_call":
+                return self._parse_workflow_call_trigger(keyword.value)
+        return None
+
+    def _parse_workflow_call_trigger(self, node: ast.expr) -> dict[str, Any]:
+        """Parse WorkflowCallTrigger arguments."""
+        result: dict[str, Any] = {"inputs": {}, "outputs": {}, "secrets": []}
+
+        if not isinstance(node, ast.Call):
+            return result
+
+        for keyword in node.keywords:
+            if keyword.arg == "inputs" and isinstance(keyword.value, ast.Dict):
+                result["inputs"] = self._parse_inputs(keyword.value)
+            elif keyword.arg == "outputs" and isinstance(keyword.value, ast.Dict):
+                result["outputs"] = self._parse_outputs(keyword.value)
+            elif keyword.arg == "secrets" and isinstance(keyword.value, ast.List):
+                result["secrets"] = self._parse_secrets(keyword.value)
+
+        return result
+
+    def _parse_inputs(self, dict_node: ast.Dict) -> dict[str, dict[str, Any]]:
+        """Parse input configurations from AST dict."""
+        inputs = {}
+        for key, value in zip(dict_node.keys, dict_node.values, strict=False):
+            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                input_name = key.value
+                # Just store the input name; detailed config parsing is optional
+                inputs[input_name] = {}
+                if isinstance(value, ast.Call):
+                    for kw in value.keywords:
+                        if kw.arg and isinstance(kw.value, ast.Constant):
+                            inputs[input_name][kw.arg] = kw.value.value
+        return inputs
+
+    def _parse_outputs(self, dict_node: ast.Dict) -> dict[str, str]:
+        """Parse output configurations from AST dict."""
+        outputs = {}
+        for key, value in zip(dict_node.keys, dict_node.values, strict=False):
+            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                output_name = key.value
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    outputs[output_name] = value.value
+                else:
+                    outputs[output_name] = ""
+        return outputs
+
+    def _parse_secrets(self, list_node: ast.List) -> list[str]:
+        """Parse secret names from AST list."""
+        secrets = []
+        for elt in list_node.elts:
+            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                secrets.append(elt.value)
+        return secrets
+
+
+def discover_reusable_workflows(
+    source: str, file_path: str = "<string>"
+) -> list[DiscoveredReusableWorkflow]:
+    """Discover reusable workflows (with workflow_call trigger) in source code.
+
+    Args:
+        source: Python source code
+        file_path: Path to the source file (for error messages)
+
+    Returns:
+        List of discovered reusable workflows
+    """
+    try:
+        tree = ast.parse(source, filename=file_path)
+    except SyntaxError:
+        return []
+
+    visitor = ReusableWorkflowVisitor(file_path)
+    visitor.visit(tree)
+
+    return visitor.reusable_workflows
