@@ -63,6 +63,13 @@ All notable changes to this project will be documented in this file.
   - `docker_build_push` - Build and push Docker images (docker/build-push-action@v6)
   - `setup_dotnet` - Set up .NET SDK environment (actions/setup-dotnet@v4)
   - `setup_ruby` - Set up Ruby environment (ruby/setup-ruby@v1)
+- Standalone graph module (`wetwire_github.graph`)
+  - `WorkflowGraph` class for dependency analysis
+  - `DependencyNode` dataclass for graph nodes
+  - `topological_sort()` - Kahn's algorithm for dependency ordering
+  - `detect_cycles()` - Cycle detection in dependency graphs
+  - `to_mermaid()` / `to_dot()` - Visualization output
+  - Refactored `graph_cmd.py` to use the new module
 
 ## [0.1.0] - 2026-01-06
 
