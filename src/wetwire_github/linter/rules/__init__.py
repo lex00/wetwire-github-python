@@ -9,6 +9,7 @@ This module provides a modular organization of lint rules:
 - validation_rules: Rules for validation (WAG009, WAG010)
 - pattern_rules: Rules for patterns and complexity (WAG011, WAG012, WAG016)
 - extraction_rules: Rules for inline extraction (WAG013-WAG015)
+- reference_rules: Rules for reference tracking (WAG050-WAG053)
 """
 
 from .action_rules import KNOWN_ACTIONS, WAG001TypedActionWrappers
@@ -33,6 +34,12 @@ from .pattern_rules import (
     WAG011ComplexConditions,
     WAG012SuggestReusableWorkflows,
     WAG016SuggestReusableWorkflowExtraction,
+)
+from .reference_rules import (
+    WAG050UnusedJobOutputs,
+    WAG051CircularJobDependencies,
+    WAG052OrphanSecrets,
+    WAG053StepOutputReferences,
 )
 from .validation_rules import (
     VALID_EVENT_TYPES,
@@ -69,6 +76,11 @@ __all__ = [
     "WAG013InlineEnvVariables",
     "WAG014InlineMatrixConfig",
     "WAG015InlineOutputs",
+    # Reference rules
+    "WAG050UnusedJobOutputs",
+    "WAG051CircularJobDependencies",
+    "WAG052OrphanSecrets",
+    "WAG053StepOutputReferences",
     # Functions
     "get_default_rules",
 ]
@@ -93,4 +105,8 @@ def get_default_rules() -> list[BaseRule]:
         WAG014InlineMatrixConfig(),
         WAG015InlineOutputs(),
         WAG016SuggestReusableWorkflowExtraction(),
+        WAG050UnusedJobOutputs(),
+        WAG051CircularJobDependencies(),
+        WAG052OrphanSecrets(),
+        WAG053StepOutputReferences(),
     ]

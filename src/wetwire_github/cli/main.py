@@ -206,8 +206,14 @@ def create_parser() -> argparse.ArgumentParser:
     )
     design_parser.add_argument(
         "--prompt",
-        "-p",
         help="Initial prompt for design session",
+    )
+    design_parser.add_argument(
+        "--provider",
+        "-p",
+        choices=["anthropic", "kiro"],
+        default="anthropic",
+        help="AI provider to use (default: anthropic)",
     )
 
     # test command
@@ -239,6 +245,13 @@ def create_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(
         "--scenario",
         help="Scenario configuration file",
+    )
+    test_parser.add_argument(
+        "--provider",
+        "-p",
+        choices=["anthropic", "kiro"],
+        default="anthropic",
+        help="AI provider to use (default: anthropic)",
     )
 
     # graph command
@@ -462,6 +475,7 @@ def cmd_design(args: argparse.Namespace) -> int:
         max_lint_cycles=args.max_lint_cycles,
         output_dir=args.output_dir,
         prompt=args.prompt,
+        provider=args.provider,
     )
 
     if output:
@@ -480,6 +494,7 @@ def cmd_test(args: argparse.Namespace) -> int:
         threshold=args.threshold,
         all_personas=args.all_personas,
         scenario=args.scenario,
+        provider=args.provider,
     )
 
     if output:

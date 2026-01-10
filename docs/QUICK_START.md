@@ -386,4 +386,5 @@ Requires `wetwire-core` and `ANTHROPIC_API_KEY`.
 - See the full [CLI Reference](CLI.md)
 - Learn about [Lint Rules](LINT_RULES.md)
 - Explore [Examples](EXAMPLES.md)
+- Create [Composite Actions](COMPOSITE_ACTIONS.md)
 - Read the [Wetwire Specification](https://github.com/lex00/wetwire/blob/main/docs/WETWIRE_SPEC.md)
