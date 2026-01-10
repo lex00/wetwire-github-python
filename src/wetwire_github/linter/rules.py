@@ -201,16 +201,40 @@ class WAG007FileTooLarge(BaseRule):
         except SyntaxError:
             return errors
 
-        job_count = 0
+        # Extract job names for splitting suggestions
+        job_names: list[str] = []
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and self._is_job_call(node):
-                job_count += 1
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+                if self._is_job_call(node.value):
+                    # Get the variable name assigned to this Job
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            job_names.append(target.id)
+
+        job_count = len(job_names)
 
         if job_count > self.max_jobs:
+            # Import splitting utilities and generate suggestions
+            from wetwire_github.linter.splitting import (
+                JobInfo,
+                suggest_workflow_splits,
+            )
+
+            # Build JobInfo list from job names
+            jobs = [JobInfo(name=name, steps=[], dependencies=set()) for name in job_names]
+            splits = suggest_workflow_splits(jobs, max_per_file=self.max_jobs)
+
+            # Format suggestion message
+            suggestion_parts = [
+                f"File has too many jobs ({job_count}), consider splitting into:",
+            ]
+            for filename, names in sorted(splits.items()):
+                suggestion_parts.append(f"  {filename}.py: {', '.join(names)}")
+
             errors.append(
                 LintError(
                     rule_id=self.id,
-                    message=f"File has too many jobs ({job_count}), consider splitting into multiple files",
+                    message="\n".join(suggestion_parts),
                     file_path=file_path,
                     line=1,
                     column=0,
