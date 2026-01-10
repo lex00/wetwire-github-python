@@ -40,7 +40,7 @@ This document tracks completed and planned features for wetwire-github.
 
 - [x] **build** - Generate YAML from Python declarations
 - [x] **validate** - Validate YAML with actionlint
-- [x] **lint** - Apply 16 linter rules (WAG001-WAG016) with auto-fix
+- [x] **lint** - Apply 28 linter rules (WAG001-WAG022, WAG049-WAG053) with auto-fix
 - [x] **import** - Convert YAML to typed Python code
 - [x] **list** - List discovered workflows and jobs
 - [x] **init** - Scaffold new project with example workflow
@@ -49,7 +49,7 @@ This document tracks completed and planned features for wetwire-github.
 - [x] **test** - Persona-based automated testing
 - [x] **kiro** - Kiro CLI integration for AI-assisted design
 
-### Linter Rules (WAG001-WAG016) ✅
+### Linter Rules (28 total: WAG001-WAG022, WAG049-WAG053) ✅
 
 **Type Safety (WAG001-WAG004):**
 - [x] WAG001: Use typed action wrappers (auto-fix)
@@ -62,18 +62,33 @@ This document tracks completed and planned features for wetwire-github.
 - [x] WAG006: Duplicate workflow names
 - [x] WAG007: File too large
 
-**Validation (WAG008-WAG012):**
+**Validation (WAG008-WAG012, WAG049):**
 - [x] WAG008: Hardcoded expressions (auto-fix)
 - [x] WAG009: Validate webhook event types
 - [x] WAG010: Document secrets usage
 - [x] WAG011: Flag complex conditions
 - [x] WAG012: Suggest reusable workflows
+- [x] WAG049: Validate workflow_call inputs and secrets references
 
 **Extraction (WAG013-WAG016):**
 - [x] WAG013: Extract inline env dicts (>3 entries)
 - [x] WAG014: Extract inline matrix configurations
 - [x] WAG015: Extract inline outputs dicts (>2 entries)
 - [x] WAG016: Suggest reusable workflow extraction for duplicated jobs
+
+**Security (WAG017-WAG022):**
+- [x] WAG017: Detect hardcoded secrets in run commands
+- [x] WAG018: Detect unpinned actions (auto-fix)
+- [x] WAG019: Flag unused permissions grants
+- [x] WAG020: Warn about secrets in run commands
+- [x] WAG021: Suggest OIDC for cloud provider auth
+- [x] WAG022: Detect unescaped user-controlled input
+
+**Reference Tracking (WAG050-WAG053):**
+- [x] WAG050: Flag unused job outputs
+- [x] WAG051: Detect circular job dependencies
+- [x] WAG052: Flag orphan secrets
+- [x] WAG053: Validate step output references
 
 ### Discovery & Analysis ✅
 
@@ -157,7 +172,7 @@ This document tracks completed and planned features for wetwire-github.
 | **Core Types** | Workflow, Job, Step | Resource classes | ✅ Full parity |
 | **Discovery** | AST-based | AST-based | ✅ Full parity |
 | **Serialization** | YAML | JSON/YAML | ✅ Full parity |
-| **Linter Rules** | 16 rules | 20 rules | 🟡 Similar coverage |
+| **Linter Rules** | 28 rules | 20 rules | ✅ More comprehensive |
 | **Import** | YAML → Python | CF/SAM → Python | ✅ Full parity |
 | **CLI Commands** | 10 commands | 9 commands | ✅ Full parity |
 | **AI Integration** | Design + Test | Design + Test | ✅ Full parity |
@@ -167,7 +182,7 @@ This document tracks completed and planned features for wetwire-github.
 | **Loader Pattern** | ✅ Yes | ✅ Yes | ✅ Full parity |
 | **Provider Pattern** | ✅ Yes | ✅ Yes | ✅ Full parity |
 | **Extended Configs** | 3 types | N/A | ✅ Domain-specific |
-| **Action Wrappers** | 21 wrappers | N/A | ✅ Domain-specific |
+| **Action Wrappers** | 31 wrappers | N/A | ✅ Domain-specific |
 | **Pseudo-Parameters** | GitHub contexts | AWS pseudo-params | ✅ Full parity |
 | **PropertyTypes** | N/A | Nested types | 🟡 Different domain |
 | **Intrinsics** | Expressions | Fn::* functions | 🟡 Different domain |
@@ -180,11 +195,13 @@ This document tracks completed and planned features for wetwire-github.
 ### Domain-Specific Differences
 
 **wetwire-github unique features:**
-1. Action wrappers (21 typed wrappers for common actions)
+1. Action wrappers (31 typed wrappers for common actions)
 2. Extended config types (Dependabot, Issue Templates, Discussion Templates)
 3. GitHub context pseudo-parameters
 4. Webhook event validation
 5. Reusable workflow discovery and composition
+6. Security rules (WAG017-022) for hardcoded secrets, unpinned actions, OIDC
+7. Reference tracking rules (WAG050-053) for outputs, dependencies, secrets
 
 **wetwire-aws unique features:**
 1. PropertyType wrapper classes for nested CloudFormation structures
@@ -252,17 +269,19 @@ Both packages follow the same architectural patterns and provide equivalent deve
 
 **New Features:**
 - Modular linter architecture
-- 8 additional lint rules (WAG009-WAG016)
+- 20 additional lint rules (WAG009-WAG022, WAG049-WAG053) for total of 28
+- Security rules (WAG017-022) for secrets, actions, permissions, OIDC
+- Reference tracking rules (WAG050-053) for outputs, dependencies, secrets
 - Loader module with namespace injection
 - Provider module for build orchestration
-- Expanded action wrappers (21 total)
+- Expanded action wrappers (31 total)
 - GitHub context pseudo-parameters
 - Reusable workflow discovery
 - MCP server
 - Kiro CLI integration
 - Adoption/migration guide
 - Composite actions support
-- New action wrappers: `deploy_pages`, `configure_pages`, `attest_build_provenance`
+- New action wrappers: `deploy_pages`, `configure_pages`, `attest_build_provenance`, `dependency_review`, `labeler`, `stale`, `first_interaction`, `create_github_app_token`
 
 ---
 
