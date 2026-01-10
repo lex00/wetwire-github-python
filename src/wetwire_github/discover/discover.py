@@ -11,6 +11,7 @@ from typing import Any
 
 # Resource types we discover
 DISCOVERABLE_TYPES = {"Workflow", "Job"}
+ACTION_TYPES = {"CompositeAction"}
 
 
 @dataclass
@@ -399,3 +400,126 @@ def discover_reusable_workflows(
     visitor.visit(tree)
 
     return visitor.reusable_workflows
+
+
+class ActionVisitor(ast.NodeVisitor):
+    """AST visitor that discovers CompositeAction assignments."""
+
+    def __init__(self, file_path: str) -> None:
+        self.file_path = file_path
+        self.module = Path(file_path).stem
+        self.resources: list[DiscoveredResource] = []
+        # Track import aliases: alias -> original name
+        self.import_aliases: dict[str, str] = {}
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """Track imports from wetwire_github.composite."""
+        if node.module and "wetwire_github.composite" in node.module:
+            for alias in node.names:
+                actual_name = alias.name
+                bound_name = alias.asname if alias.asname else alias.name
+                if actual_name in ACTION_TYPES:
+                    self.import_aliases[bound_name] = actual_name
+        self.generic_visit(node)
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        """Check assignments for CompositeAction instantiations."""
+        # Only handle simple name assignments
+        if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            self.generic_visit(node)
+            return
+
+        target_name = node.targets[0].id
+
+        # Check if RHS is a Call
+        if not isinstance(node.value, ast.Call):
+            self.generic_visit(node)
+            return
+
+        # Get the function being called
+        func = node.value.func
+        type_name = None
+
+        if isinstance(func, ast.Name):
+            # Direct call: CompositeAction(...)
+            if func.id in self.import_aliases:
+                type_name = self.import_aliases[func.id]
+            elif func.id in ACTION_TYPES:
+                type_name = func.id
+        elif isinstance(func, ast.Attribute):
+            # Attribute call: composite.CompositeAction(...)
+            if func.attr in ACTION_TYPES:
+                type_name = func.attr
+
+        if type_name:
+            self.resources.append(
+                DiscoveredResource(
+                    name=target_name,
+                    type=type_name,
+                    file_path=self.file_path,
+                    line_number=node.lineno,
+                    module=self.module,
+                )
+            )
+
+        self.generic_visit(node)
+
+
+def discover_actions(
+    directory: str,
+    recursive: bool = True,
+    exclude_hidden: bool = True,
+    exclude_pycache: bool = True,
+) -> list[DiscoveredResource]:
+    """Discover CompositeAction resources in all Python files in a directory.
+
+    Args:
+        directory: Path to directory to scan
+        recursive: Whether to scan subdirectories
+        exclude_hidden: Whether to exclude hidden directories (starting with .)
+        exclude_pycache: Whether to exclude __pycache__ directories
+
+    Returns:
+        List of all discovered CompositeAction resources
+    """
+    resources = []
+    dir_path = Path(directory)
+
+    def should_skip_dir(name: str) -> bool:
+        """Check if a directory should be skipped."""
+        if exclude_pycache and name == "__pycache__":
+            return True
+        if exclude_hidden and name.startswith("."):
+            return True
+        return False
+
+    def scan_directory(path: Path) -> None:
+        """Scan a directory for Python files."""
+        try:
+            entries = list(path.iterdir())
+        except PermissionError:
+            return
+
+        for entry in entries:
+            if entry.is_file() and entry.suffix == ".py":
+                # Discover actions in this file
+                try:
+                    with open(entry, encoding="utf-8") as f:
+                        source = f.read()
+                except (OSError, UnicodeDecodeError):
+                    continue
+
+                try:
+                    tree = ast.parse(source, filename=str(entry))
+                except SyntaxError:
+                    continue
+
+                visitor = ActionVisitor(str(entry))
+                visitor.visit(tree)
+                resources.extend(visitor.resources)
+            elif entry.is_dir() and recursive:
+                if not should_skip_dir(entry.name):
+                    scan_directory(entry)
+
+    scan_directory(dir_path)
+    return resources

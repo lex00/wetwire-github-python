@@ -9,10 +9,12 @@ from wetwire_github.composite.types import (
     CompositeAction,
     CompositeRuns,
 )
+from wetwire_github.composite.write import write_action
 
 __all__ = [
     "ActionInput",
     "ActionOutput",
     "CompositeAction",
     "CompositeRuns",
+    "write_action",
 ]

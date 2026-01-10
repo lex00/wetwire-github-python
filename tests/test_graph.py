@@ -216,7 +216,7 @@ class TestMermaidGeneration:
     def test_to_mermaid_single_workflow(self) -> None:
         """Test generating Mermaid diagram for single workflow."""
         job_a = Job(runs_on="ubuntu-latest", steps=[Step(run="echo a")])
-        job_b = Job(runs_on="ubuntu-latest", steps=[Step(run="echo b")], needs="a")
+        job_b = Job(runs_on="ubuntu-latest", steps=[Step(run="echo b")], needs="build")
 
         workflow = Workflow(
             name="CI",
@@ -256,7 +256,7 @@ class TestDotGeneration:
     def test_to_dot_single_workflow(self) -> None:
         """Test generating DOT diagram for single workflow."""
         job_a = Job(runs_on="ubuntu-latest", steps=[Step(run="echo a")])
-        job_b = Job(runs_on="ubuntu-latest", steps=[Step(run="echo b")], needs="a")
+        job_b = Job(runs_on="ubuntu-latest", steps=[Step(run="echo b")], needs="build")
 
         workflow = Workflow(
             name="CI",
