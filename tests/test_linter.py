@@ -16,6 +16,10 @@ from wetwire_github.linter.rules import (
     WAG006DuplicateWorkflowNames,
     WAG007FileTooLarge,
     WAG008HardcodedExpressions,
+    WAG009ValidateEventTypes,
+    WAG010MissingSecretVariables,
+    WAG011ComplexConditions,
+    WAG012SuggestReusableWorkflows,
 )
 
 
@@ -715,3 +719,236 @@ step3 = Step(if_="${{ always() }}")
         assert "checkout()" in result.source
         assert 'Secrets.get("GITHUB_TOKEN")' in result.source
         assert "if_=always()" in result.source
+
+
+class TestWAG009ValidateEventTypes:
+    """Tests for WAG009: Validate event types."""
+
+    def test_detect_invalid_event_type(self):
+        """Detect invalid event types in triggers."""
+        rule = WAG009ValidateEventTypes()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Workflow
+w = Workflow(name="CI", on={"invalid_event": {}})
+""",
+            "test.py",
+        )
+        assert len(errors) == 1
+        assert "Unknown event type" in errors[0].message
+        assert "invalid_event" in errors[0].message
+
+    def test_allow_valid_event_types(self):
+        """Allow valid event types."""
+        rule = WAG009ValidateEventTypes()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Workflow
+w = Workflow(name="CI", on={"push": {}, "pull_request": {}})
+""",
+            "test.py",
+        )
+        assert len(errors) == 0
+
+    def test_allow_workflow_dispatch(self):
+        """Allow workflow_dispatch event."""
+        rule = WAG009ValidateEventTypes()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Workflow
+w = Workflow(name="Manual", on={"workflow_dispatch": {}})
+""",
+            "test.py",
+        )
+        assert len(errors) == 0
+
+    def test_allow_schedule(self):
+        """Allow schedule event."""
+        rule = WAG009ValidateEventTypes()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Workflow
+w = Workflow(name="Cron", on={"schedule": [{"cron": "0 0 * * *"}]})
+""",
+            "test.py",
+        )
+        assert len(errors) == 0
+
+
+class TestWAG010MissingSecretVariables:
+    """Tests for WAG010: Missing secret variables."""
+
+    def test_detect_secrets_used(self):
+        """Detect secrets that need documentation."""
+        rule = WAG010MissingSecretVariables()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+step = Step(env={"TOKEN": "${{ secrets.DEPLOY_TOKEN }}"})
+""",
+            "test.py",
+        )
+        assert len(errors) == 1
+        assert "DEPLOY_TOKEN" in errors[0].message
+        assert "documented" in errors[0].message.lower()
+
+    def test_detect_secrets_get_usage(self):
+        """Detect Secrets.get() usage for documentation."""
+        rule = WAG010MissingSecretVariables()
+        errors = rule.check(
+            """
+from wetwire_github.workflow.expressions import Secrets
+token = Secrets.get("API_KEY")
+""",
+            "test.py",
+        )
+        assert len(errors) == 1
+        assert "API_KEY" in errors[0].message
+
+    def test_no_secrets_used(self):
+        """No warning when no secrets are used."""
+        rule = WAG010MissingSecretVariables()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+step = Step(run="echo hello")
+""",
+            "test.py",
+        )
+        assert len(errors) == 0
+
+
+class TestWAG011ComplexConditions:
+    """Tests for WAG011: Complex conditions."""
+
+    def test_detect_complex_string_condition(self):
+        """Detect complex condition in string."""
+        rule = WAG011ComplexConditions(max_operators=2)
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+step = Step(if_="cond1 && cond2 && cond3 && cond4")
+""",
+            "test.py",
+        )
+        assert len(errors) == 1
+        assert "Complex condition" in errors[0].message
+
+    def test_allow_simple_conditions(self):
+        """Allow simple conditions."""
+        rule = WAG011ComplexConditions(max_operators=3)
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+step = Step(if_="cond1 && cond2")
+""",
+            "test.py",
+        )
+        assert len(errors) == 0
+
+    def test_detect_complex_binary_ops(self):
+        """Detect complex binary operations."""
+        rule = WAG011ComplexConditions(max_operators=2)
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Step
+step = Step(if_=a & b & c & d)
+""",
+            "test.py",
+        )
+        assert len(errors) == 1
+
+
+class TestWAG012SuggestReusableWorkflows:
+    """Tests for WAG012: Suggest reusable workflows."""
+
+    def test_detect_similar_jobs(self):
+        """Detect jobs with similar patterns."""
+        rule = WAG012SuggestReusableWorkflows()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Job, Step
+job1 = Job(
+    runs_on="ubuntu-latest",
+    steps=[Step(uses="actions/checkout@v4")]
+)
+job2 = Job(
+    runs_on="ubuntu-latest",
+    steps=[Step(uses="actions/checkout@v4")]
+)
+""",
+            "test.py",
+        )
+        assert len(errors) == 1
+        assert "similar patterns" in errors[0].message.lower()
+        assert "reusable workflow" in errors[0].message.lower()
+
+    def test_allow_different_jobs(self):
+        """Allow jobs with different patterns."""
+        rule = WAG012SuggestReusableWorkflows()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Job, Step
+build_job = Job(
+    runs_on="ubuntu-latest",
+    steps=[Step(uses="actions/checkout@v4")]
+)
+deploy_job = Job(
+    runs_on="ubuntu-latest",
+    steps=[Step(uses="actions/deploy@v1")]
+)
+""",
+            "test.py",
+        )
+        assert len(errors) == 0
+
+    def test_allow_single_job(self):
+        """Allow single job file."""
+        rule = WAG012SuggestReusableWorkflows()
+        errors = rule.check(
+            """
+from wetwire_github.workflow import Job, Step
+job = Job(
+    runs_on="ubuntu-latest",
+    steps=[Step(uses="actions/checkout@v4")]
+)
+""",
+            "test.py",
+        )
+        assert len(errors) == 0
+
+
+class TestDefaultRulesIncludeNewRules:
+    """Test that get_default_rules includes new rules."""
+
+    def test_default_rules_include_wag009(self):
+        """WAG009 is in default rules."""
+        from wetwire_github.linter.rules import get_default_rules
+
+        rules = get_default_rules()
+        rule_ids = [r.id for r in rules]
+        assert "WAG009" in rule_ids
+
+    def test_default_rules_include_wag010(self):
+        """WAG010 is in default rules."""
+        from wetwire_github.linter.rules import get_default_rules
+
+        rules = get_default_rules()
+        rule_ids = [r.id for r in rules]
+        assert "WAG010" in rule_ids
+
+    def test_default_rules_include_wag011(self):
+        """WAG011 is in default rules."""
+        from wetwire_github.linter.rules import get_default_rules
+
+        rules = get_default_rules()
+        rule_ids = [r.id for r in rules]
+        assert "WAG011" in rule_ids
+
+    def test_default_rules_include_wag012(self):
+        """WAG012 is in default rules."""
+        from wetwire_github.linter.rules import get_default_rules
+
+        rules = get_default_rules()
+        rule_ids = [r.id for r in rules]
+        assert "WAG012" in rule_ids

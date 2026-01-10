@@ -1,19 +1,23 @@
 # Lint Rules Reference
 
-wetwire-github includes a linter with 8 rules (WAG001-WAG008) that enforce type-safe patterns and catch common mistakes in GitHub workflow declarations.
+wetwire-github includes a linter with 12 rules (WAG001-WAG012) that enforce type-safe patterns and catch common mistakes in GitHub workflow declarations.
 
 ## Quick Reference
 
 | Rule | Description | Auto-Fix |
 |------|-------------|:--------:|
-| [WAG001](#wag001-use-typed-action-wrappers) | Use typed action wrappers | No |
-| [WAG002](#wag002-use-condition-builders) | Use condition builders | No |
+| [WAG001](#wag001-use-typed-action-wrappers) | Use typed action wrappers | Yes |
+| [WAG002](#wag002-use-condition-builders) | Use condition builders | Yes |
 | [WAG003](#wag003-use-secrets-context) | Use Secrets.get() helper | Yes |
 | [WAG004](#wag004-use-matrix-builder) | Use Strategy/Matrix classes | No |
 | [WAG005](#wag005-extract-inline-env-variables) | Extract repeated env variables | No |
 | [WAG006](#wag006-duplicate-workflow-names) | Detect duplicate workflow names | No |
 | [WAG007](#wag007-file-too-large) | Split large files | No |
 | [WAG008](#wag008-hardcoded-expressions) | Avoid hardcoded expressions | No |
+| [WAG009](#wag009-validate-event-types) | Validate webhook event types | No |
+| [WAG010](#wag010-document-secrets) | Document secrets usage | No |
+| [WAG011](#wag011-complex-conditions) | Flag complex conditions | No |
+| [WAG012](#wag012-suggest-reusable-workflows) | Suggest reusable workflows | No |
 
 ---
 
@@ -348,6 +352,154 @@ maintenance.py  # Scheduled maintenance jobs
 - `release.py` - Release and publishing jobs
 - `security.py` - Security scanning and audit jobs
 - `maintenance.py` - Scheduled cleanup and maintenance
+
+**Auto-fix:** No
+
+---
+
+## Validation Rules (WAG009-010)
+
+### WAG009: Validate Event Types
+
+Validate that trigger event types are valid GitHub Actions events.
+
+```python
+# Bad
+from wetwire_github.workflow import Workflow
+
+workflow = Workflow(
+    name="CI",
+    on={"invalid_event": {}},  # Not a valid event!
+    jobs={...},
+)
+```
+
+```python
+# Good
+from wetwire_github.workflow import Workflow
+
+workflow = Workflow(
+    name="CI",
+    on={
+        "push": {"branches": ["main"]},
+        "pull_request": {},
+        "workflow_dispatch": {},
+    },
+    jobs={...},
+)
+```
+
+**Why:** Invalid event types will cause workflow failures. Catching them early saves debugging time.
+
+**Valid event types include:** `push`, `pull_request`, `workflow_dispatch`, `schedule`, `release`, `issues`, `workflow_call`, and [many more](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows).
+
+**Auto-fix:** No
+
+---
+
+### WAG010: Document Secrets
+
+Detect secrets used in code to help document required secrets.
+
+```python
+# Triggers a warning to document these secrets
+from wetwire_github.workflow import Step
+from wetwire_github.workflow.expressions import Secrets
+
+step = Step(
+    env={
+        "API_KEY": Secrets.get("API_KEY"),
+        "DEPLOY_TOKEN": Secrets.get("DEPLOY_TOKEN"),
+    },
+    run="deploy.sh",
+)
+```
+
+**Why:** Secrets should be documented in your README so other contributors know what repository secrets are required.
+
+**Suggestion:** Add a "Required Secrets" section to your documentation listing all secrets with descriptions.
+
+**Auto-fix:** No
+
+---
+
+## Complexity Rules (WAG011-012)
+
+### WAG011: Complex Conditions
+
+Flag overly complex conditional logic in job/step conditions.
+
+```python
+# Bad - Too many operators
+from wetwire_github.workflow import Step
+
+step = Step(
+    if_="cond1 && cond2 && cond3 && cond4 && cond5",
+    run="complex-operation.sh",
+)
+```
+
+```python
+# Good - Extract to named variable
+from wetwire_github.workflow import Step
+
+is_production_deploy = (
+    (GitHub.ref == "refs/heads/main") &
+    (GitHub.event_name == "push") &
+    success()
+)
+
+step = Step(
+    if_=is_production_deploy,
+    run="complex-operation.sh",
+)
+```
+
+**Why:** Complex conditions are hard to read and maintain. Named variables with descriptive names make intent clear.
+
+**Threshold:** Default is 3 operators (configurable)
+
+**Auto-fix:** No
+
+---
+
+### WAG012: Suggest Reusable Workflows
+
+Detect duplicated job patterns that could be extracted into reusable workflows.
+
+```python
+# Bad - Similar jobs duplicated
+from wetwire_github.workflow import Job, Step
+
+test_py311 = Job(
+    runs_on="ubuntu-latest",
+    steps=[Step(uses="actions/checkout@v4"), Step(run="pytest")],
+)
+
+test_py312 = Job(
+    runs_on="ubuntu-latest",
+    steps=[Step(uses="actions/checkout@v4"), Step(run="pytest")],
+)
+```
+
+```python
+# Good - Use reusable workflow or matrix
+from wetwire_github.workflow import Job, Step
+from wetwire_github.workflow.strategy import Strategy, Matrix
+
+test_job = Job(
+    runs_on="ubuntu-latest",
+    strategy=Strategy(
+        matrix=Matrix(values={"python": ["3.11", "3.12"]})
+    ),
+    steps=[
+        Step(uses="actions/checkout@v4"),
+        Step(run="pytest"),
+    ],
+)
+```
+
+**Why:** Duplicated patterns increase maintenance burden and risk of inconsistencies. Reusable workflows or matrix strategies reduce duplication.
 
 **Auto-fix:** No
 

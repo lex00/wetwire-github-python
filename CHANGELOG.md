@@ -31,6 +31,11 @@ All notable changes to this project will be documented in this file.
   - Escape hatches and workarounds
   - Team onboarding playbook
   - Integration patterns
+- New lint rules (WAG009-WAG012):
+  - WAG009: Validate webhook event types in triggers
+  - WAG010: Detect secrets used to help document requirements
+  - WAG011: Flag overly complex conditional logic
+  - WAG012: Suggest reusable workflows for duplicated patterns
 
 ## [0.1.0] - 2026-01-06
 
