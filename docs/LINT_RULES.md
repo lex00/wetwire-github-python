@@ -64,17 +64,47 @@ steps = [
 
 **Why:** Typed action wrappers provide IDE autocomplete, type checking for inputs, and catch typos at import time instead of runtime.
 
-**Known actions with wrappers:**
+**Known actions with wrappers (30 total):**
+
+*GitHub Official:*
+- `actions/attest-build-provenance`
+- `actions/cache`
 - `actions/checkout`
-- `actions/setup-python`
-- `actions/setup-node`
+- `actions/configure-pages`
+- `actions/create-github-app-token`
+- `actions/dependency-review-action`
+- `actions/deploy-pages`
+- `actions/download-artifact`
+- `actions/first-interaction`
+- `actions/github-script`
+- `actions/labeler`
+- `actions/setup-dotnet`
 - `actions/setup-go`
 - `actions/setup-java`
-- `actions/cache`
+- `actions/setup-node`
+- `actions/setup-python`
+- `actions/stale`
 - `actions/upload-artifact`
-- `actions/download-artifact`
+- `actions/upload-pages-artifact`
+- `actions/upload-release-asset`
 
-**Auto-fix:** No
+*Docker:*
+- `docker/build-push-action`
+- `docker/login-action`
+- `docker/metadata-action`
+- `docker/setup-buildx-action`
+
+*AWS:*
+- `aws-actions/configure-aws-credentials`
+
+*Third-party:*
+- `codecov/codecov-action`
+- `peaceiris/actions-gh-pages`
+- `peter-evans/create-pull-request`
+- `ruby/setup-ruby`
+- `softprops/action-gh-release`
+
+**Auto-fix:** Yes
 
 ---
 
