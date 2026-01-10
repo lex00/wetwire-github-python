@@ -26,6 +26,7 @@ from .expressions import (
     success,
     tag,
     toJson,
+    trim,
     upper,
 )
 from .expressions import (
@@ -185,5 +186,6 @@ __all__ = [
     "lower",
     "toJson",
     "fromJson",
+    "trim",
     "upper",
 ]

@@ -76,6 +76,123 @@ class TestEventConvenienceProperties:
         assert str(Event.release_body) == "${{ github.event.release.body }}"
 
 
+class TestEventPushMethod:
+    """Tests for Event.push() method."""
+
+    def test_push_ref(self):
+        """Event.push returns expression for push ref property."""
+        expr = Event.push("ref")
+        assert "github.event.ref" in str(expr)
+        assert str(expr) == "${{ github.event.ref }}"
+
+    def test_push_before(self):
+        """Event.push returns expression for push before property."""
+        expr = Event.push("before")
+        assert "github.event.before" in str(expr)
+        assert str(expr) == "${{ github.event.before }}"
+
+    def test_push_after(self):
+        """Event.push returns expression for push after property."""
+        expr = Event.push("after")
+        assert "github.event.after" in str(expr)
+        assert str(expr) == "${{ github.event.after }}"
+
+
+class TestEventWorkflowRunMethod:
+    """Tests for Event.workflow_run() method."""
+
+    def test_workflow_run_conclusion(self):
+        """Event.workflow_run returns expression for workflow_run conclusion."""
+        expr = Event.workflow_run("conclusion")
+        assert "github.event.workflow_run.conclusion" in str(expr)
+        assert str(expr) == "${{ github.event.workflow_run.conclusion }}"
+
+    def test_workflow_run_name(self):
+        """Event.workflow_run returns expression for workflow_run name."""
+        expr = Event.workflow_run("name")
+        assert "github.event.workflow_run.name" in str(expr)
+        assert str(expr) == "${{ github.event.workflow_run.name }}"
+
+    def test_workflow_run_head_sha(self):
+        """Event.workflow_run returns expression for workflow_run head_sha."""
+        expr = Event.workflow_run("head_sha")
+        assert "github.event.workflow_run.head_sha" in str(expr)
+        assert str(expr) == "${{ github.event.workflow_run.head_sha }}"
+
+
+class TestEventSenderMethod:
+    """Tests for Event.sender() method."""
+
+    def test_sender_login(self):
+        """Event.sender returns expression for sender login."""
+        expr = Event.sender("login")
+        assert "github.event.sender.login" in str(expr)
+        assert str(expr) == "${{ github.event.sender.login }}"
+
+    def test_sender_id(self):
+        """Event.sender returns expression for sender id."""
+        expr = Event.sender("id")
+        assert "github.event.sender.id" in str(expr)
+        assert str(expr) == "${{ github.event.sender.id }}"
+
+    def test_sender_type(self):
+        """Event.sender returns expression for sender type."""
+        expr = Event.sender("type")
+        assert "github.event.sender.type" in str(expr)
+        assert str(expr) == "${{ github.event.sender.type }}"
+
+
+class TestEventRepositoryMethod:
+    """Tests for Event.repository() method."""
+
+    def test_repository_full_name(self):
+        """Event.repository returns expression for repository full_name."""
+        expr = Event.repository("full_name")
+        assert "github.event.repository.full_name" in str(expr)
+        assert str(expr) == "${{ github.event.repository.full_name }}"
+
+    def test_repository_name(self):
+        """Event.repository returns expression for repository name."""
+        expr = Event.repository("name")
+        assert "github.event.repository.name" in str(expr)
+        assert str(expr) == "${{ github.event.repository.name }}"
+
+    def test_repository_default_branch(self):
+        """Event.repository returns expression for repository default_branch."""
+        expr = Event.repository("default_branch")
+        assert "github.event.repository.default_branch" in str(expr)
+        assert str(expr) == "${{ github.event.repository.default_branch }}"
+
+
+class TestEventNewConvenienceProperties:
+    """Tests for new Event convenience properties."""
+
+    def test_head_commit_message(self):
+        """Event.head_commit_message returns head commit message expression."""
+        assert "github.event.head_commit.message" in str(Event.head_commit_message)
+        assert str(Event.head_commit_message) == "${{ github.event.head_commit.message }}"
+
+    def test_head_commit_id(self):
+        """Event.head_commit_id returns head commit id expression."""
+        assert "github.event.head_commit.id" in str(Event.head_commit_id)
+        assert str(Event.head_commit_id) == "${{ github.event.head_commit.id }}"
+
+    def test_sender_login_property(self):
+        """Event.sender_login returns sender login expression."""
+        assert "github.event.sender.login" in str(Event.sender_login)
+        assert str(Event.sender_login) == "${{ github.event.sender.login }}"
+
+    def test_repo_full_name(self):
+        """Event.repo_full_name returns repository full_name expression."""
+        assert "github.event.repository.full_name" in str(Event.repo_full_name)
+        assert str(Event.repo_full_name) == "${{ github.event.repository.full_name }}"
+
+    def test_repo_name(self):
+        """Event.repo_name returns repository name expression."""
+        assert "github.event.repository.name" in str(Event.repo_name)
+        assert str(Event.repo_name) == "${{ github.event.repository.name }}"
+
+
 class TestEventInStepConditions:
     """Tests for using Event in Step conditions."""
 
