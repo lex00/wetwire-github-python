@@ -81,7 +81,7 @@ class CacheStrategy:
             with_dict["restore-keys"] = "\n".join(self.restore_keys)
 
         return Step(
-            name=name,
+            name=name or "",
             uses="actions/cache@v4",
             with_=with_dict,
         )
