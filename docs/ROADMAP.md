@@ -125,7 +125,7 @@ This document tracks completed and planned features for wetwire-github.
   - [ ] `slsa-framework/slsa-github-generator` (Note: This is a reusable workflow, not a simple action wrapper, and requires different abstraction patterns)
 - [x] **Action Metadata Generation** - Generate `action.yml` from Python definitions (PR #123)
 - [x] **Enhanced Graph Visualization** - Color coding, filtering, search (PR #123)
-- [ ] **Performance Optimization** - Caching for large monorepos
+- [x] **Performance Optimization** - Caching for large monorepos (PR #127)
 
 ### Medium-Term
 
