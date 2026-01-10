@@ -19,8 +19,6 @@ Usage example:
         assert parsed["name"] == "Test Workflow"
 """
 
-from pathlib import Path
-
 import pytest
 import yaml
 
