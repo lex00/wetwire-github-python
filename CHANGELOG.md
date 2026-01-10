@@ -57,6 +57,12 @@ All notable changes to this project will be documented in this file.
   - WAG010: Detect secrets used to help document requirements
   - WAG011: Flag overly complex conditional logic
   - WAG012: Suggest reusable workflows for duplicated patterns
+- Additional typed action wrappers (`wetwire_github.actions`)
+  - `github_script` - Run JavaScript using GitHub API (actions/github-script@v7)
+  - `docker_login` - Log in to Docker registries (docker/login-action@v3)
+  - `docker_build_push` - Build and push Docker images (docker/build-push-action@v6)
+  - `setup_dotnet` - Set up .NET SDK environment (actions/setup-dotnet@v4)
+  - `setup_ruby` - Set up Ruby environment (ruby/setup-ruby@v1)
 
 ## [0.1.0] - 2026-01-06
 

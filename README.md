@@ -11,55 +11,66 @@ pip install wetwire-github
 ## Quick Start
 
 ```python
-# Single-line imports from the root package
-from wetwire_github import Workflow, Job, Step, Triggers, PushTrigger, PullRequestTrigger
+# Flat imports from the root package
+from wetwire_github import Workflow, Job, Step, Triggers, PushTrigger
+from wetwire_github.actions import checkout, setup_python
+
+# Flat declarations - define steps, jobs, then workflow
+build_steps = [
+    checkout(),
+    setup_python(python_version="3.11"),
+    Step(run="make build"),
+]
+
+build_job = Job(
+    runs_on="ubuntu-latest",
+    steps=build_steps,
+)
+
+ci_triggers = Triggers(
+    push=PushTrigger(branches=["main"]),
+)
 
 ci = Workflow(
     name="CI",
-    on=Triggers(
-        push=PushTrigger(branches=["main"]),
-        pull_request=PullRequestTrigger(branches=["main"]),
-    ),
-    jobs={
-        "build": Job(
-            runs_on="ubuntu-latest",
-            steps=[
-                Step(uses="actions/checkout@v4"),
-                Step(run="make build"),
-            ],
-        ),
-    },
+    on=ci_triggers,
+    jobs={"build": build_job},
 )
 ```
 
 ## Features
 
-### Core Types
+### Flat, Declarative Patterns
 
-Type-safe Python dataclasses for GitHub Actions workflows:
+wetwire encourages flat declarations - define small pieces and compose:
 
 ```python
-# Or import from submodules for more control
-from wetwire_github.workflow import (
-    Workflow, Job, Step, Triggers,
-    PushTrigger, PullRequestTrigger,
+from wetwire_github import Workflow, Job, Step, Triggers, PushTrigger, PullRequestTrigger
+from wetwire_github.actions import checkout, setup_python, cache
+
+# Define steps separately
+checkout_step = checkout(fetch_depth=0)
+python_step = setup_python(python_version="3.11")
+cache_step = cache(path="~/.cache/pip", key="pip-deps")
+test_step = Step(run="pytest")
+
+# Compose into jobs
+test_job = Job(
+    runs_on="ubuntu-latest",
+    steps=[checkout_step, python_step, cache_step, test_step],
 )
 
+# Define triggers
+ci_triggers = Triggers(
+    push=PushTrigger(branches=["main"]),
+    pull_request=PullRequestTrigger(branches=["main"]),
+)
+
+# Compose workflow
 ci = Workflow(
     name="CI",
-    on=Triggers(
-        push=PushTrigger(branches=["main"]),
-        pull_request=PullRequestTrigger(branches=["main"]),
-    ),
-    jobs={
-        "build": Job(
-            runs_on="ubuntu-latest",
-            steps=[
-                Step(uses="actions/checkout@v4"),
-                Step(run="make build"),
-            ],
-        ),
-    },
+    on=ci_triggers,
+    jobs={"test": test_job},
 )
 ```
 
