@@ -183,6 +183,17 @@ def create_parser() -> argparse.ArgumentParser:
         default=3,
         help="Maximum lint feedback cycles (default: 3)",
     )
+    design_parser.add_argument(
+        "--output",
+        "-o",
+        dest="output_dir",
+        help="Output directory for generated workflows",
+    )
+    design_parser.add_argument(
+        "--prompt",
+        "-p",
+        help="Initial prompt for design session",
+    )
 
     # test command
     test_parser = subparsers.add_parser(
@@ -192,7 +203,23 @@ def create_parser() -> argparse.ArgumentParser:
     )
     test_parser.add_argument(
         "--persona",
-        help="Persona to use for testing",
+        help="Persona to use for testing (reviewer, senior-dev, security, beginner)",
+    )
+    test_parser.add_argument(
+        "--workflow",
+        help="Workflow YAML file to test",
+    )
+    test_parser.add_argument(
+        "--threshold",
+        type=int,
+        default=70,
+        help="Score threshold for pass/fail (default: 70)",
+    )
+    test_parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="all_personas",
+        help="Run all personas against the workflow",
     )
     test_parser.add_argument(
         "--scenario",
@@ -349,6 +376,8 @@ def cmd_design(args: argparse.Namespace) -> int:
     exit_code, output = design_workflow(
         stream=args.stream,
         max_lint_cycles=args.max_lint_cycles,
+        output_dir=args.output_dir,
+        prompt=args.prompt,
     )
 
     if output:
@@ -363,6 +392,9 @@ def cmd_test(args: argparse.Namespace) -> int:
 
     exit_code, output = run_persona_tests(
         persona=args.persona,
+        workflow=args.workflow,
+        threshold=args.threshold,
+        all_personas=args.all_personas,
         scenario=args.scenario,
     )
 
