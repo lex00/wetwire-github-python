@@ -47,6 +47,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Config type to build (default: workflow)",
     )
     build_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable discovery caching",
+    )
+    build_parser.add_argument(
         "package",
         nargs="?",
         help="Python package to discover workflows from",
@@ -85,6 +90,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Output format (default: table)",
     )
     list_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable discovery caching",
+    )
+    list_parser.add_argument(
         "package",
         nargs="?",
         help="Python package to discover workflows from",
@@ -107,6 +117,11 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["text", "json"],
         default="text",
         help="Output format (default: text)",
+    )
+    lint_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable discovery caching",
     )
     lint_parser.add_argument(
         "package",
@@ -284,6 +299,11 @@ def create_parser() -> argparse.ArgumentParser:
         default=".",
     )
     action_build_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable discovery caching",
+    )
+    action_build_parser.add_argument(
         "package",
         nargs="?",
         help="Python package to discover actions from",
@@ -332,6 +352,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         package_path=package_path,
         output_dir=args.output,
         output_format=args.format,
+        no_cache=args.no_cache,
     )
 
     for msg in messages:
@@ -368,6 +389,7 @@ def cmd_list(args: argparse.Namespace) -> int:
     exit_code, output = list_resources(
         package_path=package_path,
         output_format=args.format,
+        no_cache=args.no_cache,
     )
 
     if output:
@@ -387,6 +409,7 @@ def cmd_lint(args: argparse.Namespace) -> int:
         package_path=package_path,
         output_format=args.format,
         fix=args.fix,
+        no_cache=args.no_cache,
     )
 
     if output:
@@ -507,6 +530,7 @@ def cmd_action_build(args: argparse.Namespace) -> int:
     exit_code, messages = build_actions(
         package_path=package_path,
         output_dir=args.output,
+        no_cache=args.no_cache,
     )
 
     for msg in messages:

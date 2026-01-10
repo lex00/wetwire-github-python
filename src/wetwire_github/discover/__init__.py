@@ -4,6 +4,7 @@ This module provides Python AST-based discovery of Workflow and Job
 definitions without requiring explicit registration.
 """
 
+from .cache import DiscoveryCache
 from .discover import (
     DiscoveredResource,
     DiscoveredReusableWorkflow,
@@ -18,6 +19,7 @@ from .discover import (
 __all__ = [
     "DiscoveredResource",
     "DiscoveredReusableWorkflow",
+    "DiscoveryCache",
     "build_dependency_graph",
     "discover_actions",
     "discover_in_directory",

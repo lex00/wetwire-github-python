@@ -6,7 +6,7 @@ Discovers composite actions in Python packages and generates action.yml output.
 from pathlib import Path
 
 from wetwire_github.composite import write_action
-from wetwire_github.discover import discover_actions
+from wetwire_github.discover import DiscoveryCache, discover_actions
 
 
 def _sanitize_dirname(name: str) -> str:
@@ -39,12 +39,14 @@ def _sanitize_dirname(name: str) -> str:
 def build_actions(
     package_path: str,
     output_dir: str,
+    no_cache: bool = False,
 ) -> tuple[int, list[str]]:
     """Build composite actions from a Python package.
 
     Args:
         package_path: Path to Python package containing action definitions
         output_dir: Directory to write output files
+        no_cache: If True, bypass discovery cache
 
     Returns:
         Tuple of (exit_code, list of generated file paths or error messages)
@@ -59,8 +61,11 @@ def build_actions(
     # Create output directory if needed
     output.mkdir(parents=True, exist_ok=True)
 
+    # Initialize cache if not disabled
+    cache = None if no_cache else DiscoveryCache()
+
     # Discover action files using AST
-    discovered = discover_actions(str(package))
+    discovered = discover_actions(str(package), cache=cache)
 
     if not discovered:
         return 1, ["No composite actions found in package"]
