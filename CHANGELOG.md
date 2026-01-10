@@ -24,6 +24,9 @@ All notable changes to this project will be documented in this file.
   - `build()` - Generates YAML content for workflows
   - `validate()` - Validates workflows before building
   - `write()` - Writes workflow files to output directory
+- Expanded auto-fix support for lint rules
+  - WAG004: Auto-fix raw strategy/matrix dicts with Strategy/Matrix classes
+  - WAG008: Auto-fix common GitHub context expressions (github.ref, etc.)
 - Kiro CLI integration module (`wetwire_github.kiro`)
   - `install_kiro_configs()` - Installs agent and MCP configs for Kiro CLI
   - `launch_kiro()` - Launches Kiro CLI with wetwire-github-runner agent
