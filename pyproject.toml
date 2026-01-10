@@ -79,6 +79,9 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=wetwire_github --cov-report=term-missing"
 pythonpath = ["src"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
 
 [tool.coverage.run]
 source = ["src/wetwire_github"]
