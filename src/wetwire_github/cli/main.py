@@ -223,6 +223,13 @@ def create_parser() -> argparse.ArgumentParser:
         help="Python package to analyze",
     )
 
+    # mcp-server command
+    subparsers.add_parser(
+        "mcp-server",
+        help="Start MCP server for AI agent integration",
+        description="Run the Model Context Protocol server for AI tools like Kiro CLI.",
+    )
+
     return parser
 
 
@@ -384,6 +391,23 @@ def cmd_graph(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def cmd_mcp_server(args: argparse.Namespace) -> int:
+    """Execute mcp-server command."""
+    import asyncio
+
+    from wetwire_github.mcp_server import run_server
+
+    try:
+        asyncio.run(run_server())
+        return 0
+    except ImportError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        print("Install mcp package: pip install mcp", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main entry point for the CLI."""
     parser = create_parser()
@@ -404,6 +428,7 @@ def main(argv: list[str] | None = None) -> int:
         "design": cmd_design,
         "test": cmd_test,
         "graph": cmd_graph,
+        "mcp-server": cmd_mcp_server,
     }
 
     if args.command in commands:

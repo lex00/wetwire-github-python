@@ -15,6 +15,7 @@ The `wetwire-github` command provides tools for generating and validating GitHub
 | `wetwire-github design` | AI-assisted workflow design |
 | `wetwire-github test` | Persona-based testing |
 | `wetwire-github graph` | Generate DAG visualization of workflow jobs |
+| `wetwire-github mcp-server` | Start MCP server for AI agent integration |
 
 ```bash
 wetwire-github --version  # Show version
@@ -476,6 +477,60 @@ digraph {
   deploy [shape=box label="deploy"]
   test -> build
   deploy -> test
+}
+```
+
+---
+
+## mcp-server
+
+Start the Model Context Protocol (MCP) server for AI agent integration.
+
+```bash
+# Start MCP server
+wetwire-github mcp-server
+```
+
+The MCP server enables AI tools like Kiro CLI to interact with wetwire-github commands programmatically.
+
+### Available Tools
+
+The MCP server exposes the following tools:
+
+| Tool | Description |
+|------|-------------|
+| `wetwire_init` | Create a new project |
+| `wetwire_build` | Generate YAML from Python declarations |
+| `wetwire_lint` | Run code quality rules |
+| `wetwire_validate` | Validate YAML via actionlint |
+| `wetwire_import` | Convert YAML to Python |
+| `wetwire_list` | List discovered workflows |
+| `wetwire_graph` | Generate dependency graphs |
+
+### Installation
+
+The MCP server requires the optional `mcp` dependency:
+
+```bash
+# Install with MCP support
+pip install wetwire-github[mcp]
+
+# Or with uv
+uv pip install wetwire-github[mcp]
+```
+
+### Usage with AI Tools
+
+Configure your AI tool to use the MCP server. For example, with Kiro CLI:
+
+```json
+{
+  "mcpServers": {
+    "wetwire-github": {
+      "command": "wetwire-github",
+      "args": ["mcp-server"]
+    }
+  }
 }
 ```
 
