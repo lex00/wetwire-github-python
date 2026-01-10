@@ -431,6 +431,112 @@ class WAG019UnusedPermissions(BaseRule):
                 used.update(ACTION_PERMISSION_REQUIREMENTS[action_name].keys())
         return used
 
+    def fix(self, source: str, file_path: str) -> tuple[str, int, list[LintError]]:
+        """Fix unused permissions by removing them from Job declarations.
+
+        Returns:
+            Tuple of (fixed_source, fixed_count, remaining_errors)
+        """
+        fixed_count = 0
+        fixed_source = source
+
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return source, 0, self.check(source, file_path)
+
+        # Find all Job calls with unused permissions
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and self._is_job_call(node):
+                permissions = self._extract_permissions(node)
+                steps = self._extract_steps(node)
+
+                if permissions is None:
+                    continue
+
+                # Can only auto-fix dict-based permissions, not "write-all" or "read-all"
+                if isinstance(permissions, str):
+                    continue
+
+                # Find unused permissions
+                if isinstance(permissions, dict):
+                    used_permissions = self._get_used_permissions(steps)
+                    unused_perms = [
+                        perm for perm in permissions.keys() if perm not in used_permissions
+                    ]
+
+                    if unused_perms:
+                        # Build the fixed permissions dict
+                        fixed_perms = {
+                            k: v for k, v in permissions.items() if k in used_permissions
+                        }
+
+                        # Find the permissions keyword argument
+                        for keyword in node.keywords:
+                            if keyword.arg == "permissions" and isinstance(
+                                keyword.value, ast.Dict
+                            ):
+                                # Replace the entire permissions dict
+                                if fixed_perms:
+                                    # Keep used permissions
+                                    new_perms_str = self._format_permissions_dict(fixed_perms)
+                                else:
+                                    # Remove permissions entirely if none are used
+                                    new_perms_str = None
+
+                                # Perform the replacement
+                                fixed_source = self._replace_permissions_in_source(
+                                    fixed_source,
+                                    keyword.value,
+                                    new_perms_str,
+                                )
+                                fixed_count += len(unused_perms)
+
+        # Check for remaining errors
+        remaining_errors = self.check(fixed_source, file_path)
+
+        return fixed_source, fixed_count, remaining_errors
+
+    def _format_permissions_dict(self, perms: dict[str, str]) -> str:
+        """Format permissions dict as Python code."""
+        items = [f'"{k}": "{v}"' for k, v in perms.items()]
+        return "{" + ", ".join(items) + "}"
+
+    def _replace_permissions_in_source(
+        self, source: str, dict_node: ast.Dict, new_perms_str: str | None
+    ) -> str:
+        """Replace permissions dict in source code."""
+        lines = source.splitlines(keepends=True)
+
+        start_line = dict_node.lineno
+        start_col = dict_node.col_offset
+        end_line = dict_node.end_lineno or start_line
+        end_col = dict_node.end_col_offset or start_col
+
+        if new_perms_str is None:
+            # Remove the entire permissions= keyword argument
+            # This is more complex - for now, just replace with empty dict
+            new_perms_str = "{}"
+
+        # Replace the dict
+        if start_line == end_line:
+            # Single line replacement
+            line = lines[start_line - 1]
+            lines[start_line - 1] = line[:start_col] + new_perms_str + line[end_col:]
+        else:
+            # Multi-line dict replacement
+            lines[start_line - 1] = (
+                lines[start_line - 1][:start_col] + new_perms_str + "\n"
+            )
+            # Remove intermediate lines
+            for _ in range(end_line - start_line):
+                del lines[start_line]
+            # Adjust the line after the dict
+            if start_line < len(lines):
+                lines[start_line] = lines[start_line][end_col:]
+
+        return "".join(lines)
+
 
 class WAG020OverlyPermissiveSecrets(BaseRule):
     """WAG020: Warn if secrets are used in run commands without explicit masking.

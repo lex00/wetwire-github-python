@@ -24,13 +24,13 @@ wetwire-github includes a linter with 28 rules (WAG001-WAG022, WAG050-WAG053) th
 | [WAG016](#wag016-suggest-reusable-workflow-extraction) | Suggest reusable workflow extraction | No |
 | [WAG017](#wag017-hardcoded-secrets-in-run) | Detect hardcoded secrets in run commands | No |
 | [WAG018](#wag018-unpinned-actions) | Detect unpinned actions | Yes |
-| [WAG019](#wag019-unused-permissions) | Detect unused permissions | No |
+| [WAG019](#wag019-unused-permissions) | Detect unused permissions | Yes |
 | [WAG020](#wag020-overly-permissive-secrets) | Warn about secrets in run commands | No |
 | [WAG021](#wag021-missing-oidc-configuration) | Suggest OIDC for cloud auth | No |
 | [WAG022](#wag022-implicit-environment-exposure) | Detect unescaped user input | No |
-| [WAG050](#wag050-unused-job-outputs) | Flag unused job outputs | No |
+| [WAG050](#wag050-unused-job-outputs) | Flag unused job outputs | Yes |
 | [WAG051](#wag051-circular-job-dependencies) | Detect circular job dependencies | No |
-| [WAG052](#wag052-orphan-secrets) | Flag orphan secrets | No |
+| [WAG052](#wag052-orphan-secrets) | Flag orphan secrets | Yes |
 | [WAG053](#wag053-step-output-references) | Validate step output references | No |
 
 ---
@@ -884,7 +884,7 @@ job = Job(
 
 **Why:** Following the principle of least privilege reduces the blast radius of potential security incidents. Only grant permissions that are actually required.
 
-**Auto-fix:** No
+**Auto-fix:** Yes - Removes unused permission declarations from Job configurations. Cannot auto-fix broad permissions like "write-all" that require manual review.
 
 ---
 
@@ -1108,7 +1108,7 @@ workflow = Workflow(
 
 **Why:** Unused outputs add noise to workflow definitions and may indicate incomplete job wiring or leftover code from refactoring.
 
-**Auto-fix:** No
+**Auto-fix:** Yes - Removes unreferenced output definitions from Job declarations.
 
 ---
 
@@ -1224,7 +1224,7 @@ workflow = Workflow(
 
 **Why:** Orphan secrets indicate incomplete workflow logic or leftover code. They also unnecessarily expose secrets that aren't needed.
 
-**Auto-fix:** No
+**Auto-fix:** Yes - Removes unused secret declarations from workflow/job env dictionaries.
 
 ---
 

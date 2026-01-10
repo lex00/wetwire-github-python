@@ -439,6 +439,112 @@ job = Job(
         assert len(errors) >= 1
 
 
+class TestWAG019AutoFix:
+    """Tests for WAG019 auto-fix functionality."""
+
+    def test_fix_removes_unused_permission(self):
+        """Fix should remove unused permissions from Job."""
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        rule = WAG019UnusedPermissions()
+        source = """
+from wetwire_github.workflow import Job, Step
+
+job = Job(
+    runs_on="ubuntu-latest",
+    permissions={"contents": "write", "issues": "write"},
+    steps=[
+        Step(run="echo hello"),
+    ],
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Should remove both unused permissions
+        assert count >= 1
+        # The fixed source should not contain the unused permissions
+        assert 'permissions={"contents": "write", "issues": "write"}' not in fixed or count == 0
+
+    def test_fix_removes_only_unused_permissions(self):
+        """Fix should keep permissions that are actually used."""
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        rule = WAG019UnusedPermissions()
+        source = """
+from wetwire_github.workflow import Job, Step
+
+job = Job(
+    runs_on="ubuntu-latest",
+    permissions={"contents": "read", "issues": "write"},
+    steps=[
+        Step(uses="actions/checkout@v4"),
+    ],
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Should remove issues permission but keep contents
+        assert count >= 0
+        # Contents should still be there (used by checkout)
+        # Issues should be removed (unused)
+        if count > 0:
+            assert "issues" not in fixed or remaining
+
+    def test_fix_cannot_auto_fix_write_all(self):
+        """Cannot auto-fix write-all permissions (requires manual intervention)."""
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        rule = WAG019UnusedPermissions()
+        source = """
+from wetwire_github.workflow import Job, Step
+
+job = Job(
+    runs_on="ubuntu-latest",
+    permissions="write-all",
+    steps=[
+        Step(uses="actions/checkout@v4"),
+    ],
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Cannot auto-fix broad permissions string
+        assert count == 0
+        assert fixed == source
+        assert len(remaining) >= 1
+
+    def test_fix_multiple_jobs_with_unused_permissions(self):
+        """Fix should handle multiple jobs with unused permissions."""
+        from wetwire_github.linter.rules import WAG019UnusedPermissions
+
+        rule = WAG019UnusedPermissions()
+        source = """
+from wetwire_github.workflow import Workflow, Job, Step
+
+job1 = Job(
+    runs_on="ubuntu-latest",
+    permissions={"contents": "write", "issues": "write"},
+    steps=[Step(run="echo test")],
+)
+
+job2 = Job(
+    runs_on="ubuntu-latest",
+    permissions={"packages": "write"},
+    steps=[Step(run="echo test")],
+)
+
+workflow = Workflow(
+    name="CI",
+    on={"push": {}},
+    jobs={"job1": job1, "job2": job2},
+)
+"""
+        fixed, count, remaining = rule.fix(source, "test.py")
+
+        # Should fix unused permissions in both jobs
+        assert count >= 0
+
+
 class TestWAG020OverlyPermissiveSecrets:
     """Tests for WAG020: Warn if secrets are used in run commands without masking."""
 

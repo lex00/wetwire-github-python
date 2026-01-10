@@ -27,6 +27,9 @@ All notable changes to this project will be documented in this file.
 - Expanded auto-fix support for lint rules
   - WAG004: Auto-fix raw strategy/matrix dicts with Strategy/Matrix classes
   - WAG008: Auto-fix common GitHub context expressions (github.ref, etc.)
+  - WAG019: Auto-remove unused permission declarations from Job configurations
+  - WAG050: Auto-remove unreferenced output definitions from Job declarations
+  - WAG052: Auto-remove orphan secret declarations from workflow/job env
 - Kiro CLI integration module (`wetwire_github.kiro`)
   - `install_kiro_configs()` - Installs agent and MCP configs for Kiro CLI
   - `launch_kiro()` - Launches Kiro CLI with wetwire-github-runner agent
