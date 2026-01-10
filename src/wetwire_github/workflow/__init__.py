@@ -7,10 +7,15 @@ from .expressions import (
     Expression,
     GitHub,
     Inputs,
+    JobContext,
     Needs,
     Runner,
     Secrets,
     Steps,
+    StrategyContext,
+    StrategyInstance,
+    Vars,
+    VarsContext,
     always,
     branch,
     cancelled,
@@ -28,6 +33,9 @@ from .expressions import (
     toJson,
     trim,
     upper,
+)
+from .expressions import (
+    Job as JobCtx,
 )
 from .expressions import (
     Matrix as MatrixContext,
@@ -170,6 +178,12 @@ __all__ = [
     "Inputs",
     "Steps",
     "Event",
+    "JobCtx",
+    "JobContext",
+    "Vars",
+    "VarsContext",
+    "StrategyInstance",
+    "StrategyContext",
     "always",
     "failure",
     "success",

@@ -205,6 +205,74 @@ class EventContext:
     repo_name = Expression("github.event.repository.name")
 
 
+class JobContext:
+    """Accessor for job context.
+
+    Provides information about the currently running job, including
+    status and container/service information.
+    """
+
+    status = Expression("job.status")
+    container_id = Expression("job.container.id")
+    container_network = Expression("job.container.network")
+
+    @staticmethod
+    def services(service_name: str, prop: str) -> Expression:
+        """Get a property from a service container.
+
+        Args:
+            service_name: The service container name
+            prop: The property to access (e.g., "id", "ports.5432")
+
+        Returns:
+            Expression for the service property
+
+        Example:
+            >>> JobContext.services("postgres", "id")
+            ${{ job.services.postgres.id }}
+            >>> JobContext.services("redis", "ports.6379")
+            ${{ job.services.redis.ports.6379 }}
+        """
+        return Expression(f"job.services.{service_name}.{prop}")
+
+
+class VarsContext:
+    """Accessor for vars context.
+
+    Provides access to repository, organization, or environment-level
+    configuration variables (not secrets).
+    """
+
+    @staticmethod
+    def get(name: str) -> Expression:
+        """Get a variable by name.
+
+        Args:
+            name: The variable name
+
+        Returns:
+            Expression for the variable value
+
+        Example:
+            >>> VarsContext.get("API_URL")
+            ${{ vars.API_URL }}
+        """
+        return Expression(f"vars.{name}")
+
+
+class StrategyContext:
+    """Accessor for strategy context.
+
+    Provides information about the matrix strategy execution,
+    including job index and total job count.
+    """
+
+    fail_fast = Expression("strategy.fail-fast")
+    job_index = Expression("strategy.job-index")
+    job_total = Expression("strategy.job-total")
+    max_parallel = Expression("strategy.max-parallel")
+
+
 # Module-level context instances
 Secrets = SecretsContext()
 Matrix = MatrixContext()
@@ -215,6 +283,9 @@ Needs = NeedsContext()
 Inputs = InputsContext()
 Steps = StepsContext()
 Event = EventContext()
+Job = JobContext()
+Vars = VarsContext()
+StrategyInstance = StrategyContext()
 
 
 # Condition builder functions
