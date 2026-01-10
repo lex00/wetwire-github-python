@@ -50,6 +50,7 @@ dev = [
 
 [project.scripts]
 wetwire-github = "wetwire_github.cli:main"
+wetwire-github-mcp = "wetwire_github.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/lex00/wetwire-github-python"
