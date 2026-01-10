@@ -14,13 +14,18 @@ __all__ = ["WAG001TypedActionWrappers", "KNOWN_ACTIONS"]
 
 # Known action wrappers we provide
 KNOWN_ACTIONS = {
+    "actions/attest-build-provenance",
     "actions/cache",
     "actions/checkout",
+    "actions/configure-pages",
     "actions/create-github-app-token",
     "actions/dependency-review-action",
+    "actions/deploy-pages",
     "actions/download-artifact",
     "actions/first-interaction",
+    "actions/github-script",
     "actions/labeler",
+    "actions/setup-dotnet",
     "actions/setup-go",
     "actions/setup-java",
     "actions/setup-node",
@@ -29,6 +34,16 @@ KNOWN_ACTIONS = {
     "actions/upload-artifact",
     "actions/upload-pages-artifact",
     "actions/upload-release-asset",
+    "aws-actions/configure-aws-credentials",
+    "codecov/codecov-action",
+    "docker/build-push-action",
+    "docker/login-action",
+    "docker/metadata-action",
+    "docker/setup-buildx-action",
+    "peaceiris/actions-gh-pages",
+    "peter-evans/create-pull-request",
+    "ruby/setup-ruby",
+    "softprops/action-gh-release",
 }
 
 
@@ -98,13 +113,18 @@ class WAG001TypedActionWrappers(BaseRule):
 
         # Map of action names to wrapper function names
         action_wrappers = {
+            "actions/attest-build-provenance": "attest_build_provenance",
             "actions/cache": "cache",
             "actions/checkout": "checkout",
+            "actions/configure-pages": "configure_pages",
             "actions/create-github-app-token": "create_github_app_token",
             "actions/dependency-review-action": "dependency_review",
+            "actions/deploy-pages": "deploy_pages",
             "actions/download-artifact": "download_artifact",
             "actions/first-interaction": "first_interaction",
+            "actions/github-script": "github_script",
             "actions/labeler": "labeler",
+            "actions/setup-dotnet": "setup_dotnet",
             "actions/setup-go": "setup_go",
             "actions/setup-java": "setup_java",
             "actions/setup-node": "setup_node",
@@ -113,6 +133,16 @@ class WAG001TypedActionWrappers(BaseRule):
             "actions/upload-artifact": "upload_artifact",
             "actions/upload-pages-artifact": "upload_pages_artifact",
             "actions/upload-release-asset": "upload_release_asset",
+            "aws-actions/configure-aws-credentials": "configure_aws_credentials",
+            "codecov/codecov-action": "codecov",
+            "docker/build-push-action": "docker_build_push",
+            "docker/login-action": "docker_login",
+            "docker/metadata-action": "docker_metadata",
+            "docker/setup-buildx-action": "setup_buildx",
+            "peaceiris/actions-gh-pages": "gh_pages",
+            "peter-evans/create-pull-request": "create_pull_request",
+            "ruby/setup-ruby": "setup_ruby",
+            "softprops/action-gh-release": "gh_release",
         }
 
         # Pattern to find Step(uses="actions/...@v...")
